@@ -952,6 +952,59 @@ HELP
 # MAIN
 # ============================================================================
 
+cmd_seat_join() {
+    local org_name="${1:-}"
+    local ssot_url="${2:-}"
+    
+    if [[ -z "$org_name" || -z "$ssot_url" ]]; then
+        log_error "Organization and URL required"
+        echo "Usage: workstation seat join --org <name> --url <SSOT_URL>"
+        exit 1
+    fi
+    
+    local seat_path=$(detect_seat_context)
+    if [[ -z "$seat_path" ]]; then
+        log_error "Not in a Seat context"
+        exit 1
+    fi
+    
+    local seat_name=$(basename "$seat_path")
+    log_header "Linking Seat to $org_name"
+    
+    mkdir -p "${seat_path}/.openclaw/.workstation"
+    echo "$org_name" > "${seat_path}/.openclaw/.workstation/org"
+    echo "$ssot_url" > "${seat_path}/.openclaw/.workstation/ssot_url"
+    
+    log_success "Seat linked to $org_name"
+    echo "Share Seat URL with $org_name admin for incorporation"
+}
+
+cmd_seat_incorporate() {
+    local seat_url="${1:-}"
+    local central_name="${2:-${CURRENT_CENTRAL:-}}"
+    
+    if [[ -z "$seat_url" ]]; then
+        log_error "Seat URL required"
+        exit 1
+    fi
+    
+    if [[ -z "$central_name" ]]; then
+        log_error "Central not specified"
+        exit 1
+    fi
+    
+    source "${WORKSTATION_DIR}/centrals/${central_name}/config"
+    local seat_name=$(echo "$seat_url" | sed -E 's|.*/Seat-([^-]+)-.*|\1|')
+    
+    cd "${SSOT_PATH}"
+    if git submodule add "$seat_url" "Seats/${seat_name}" 2>&1; then
+        git commit -m "Incorporate Seat: ${seat_name}" || true
+        log_success "Seat incorporated"
+    else
+        log_error "Failed to incorporate"
+        exit 1
+    fi
+}
 main() {
     local command="${1:-help}"
     
@@ -1034,56 +1087,3 @@ detect_seat_context() {
     return 1
 }
 
-cmd_seat_join() {
-    local org_name="${1:-}"
-    local ssot_url="${2:-}"
-    
-    if [[ -z "$org_name" || -z "$ssot_url" ]]; then
-        log_error "Organization and URL required"
-        echo "Usage: workstation seat join --org <name> --url <SSOT_URL>"
-        exit 1
-    fi
-    
-    local seat_path=$(detect_seat_context)
-    if [[ -z "$seat_path" ]]; then
-        log_error "Not in a Seat context"
-        exit 1
-    fi
-    
-    local seat_name=$(basename "$seat_path")
-    log_header "Linking Seat to $org_name"
-    
-    mkdir -p "${seat_path}/.openclaw/.workstation"
-    echo "$org_name" > "${seat_path}/.openclaw/.workstation/org"
-    echo "$ssot_url" > "${seat_path}/.openclaw/.workstation/ssot_url"
-    
-    log_success "Seat linked to $org_name"
-    echo "Share Seat URL with $org_name admin for incorporation"
-}
-
-cmd_seat_incorporate() {
-    local seat_url="${1:-}"
-    local central_name="${2:-${CURRENT_CENTRAL:-}}"
-    
-    if [[ -z "$seat_url" ]]; then
-        log_error "Seat URL required"
-        exit 1
-    fi
-    
-    if [[ -z "$central_name" ]]; then
-        log_error "Central not specified"
-        exit 1
-    fi
-    
-    source "${WORKSTATION_DIR}/centrals/${central_name}/config"
-    local seat_name=$(echo "$seat_url" | sed -E 's|.*/Seat-([^-]+)-.*|\1|')
-    
-    cd "${SSOT_PATH}"
-    if git submodule add "$seat_url" "Seats/${seat_name}" 2>&1; then
-        git commit -m "Incorporate Seat: ${seat_name}" || true
-        log_success "Seat incorporated"
-    else
-        log_error "Failed to incorporate"
-        exit 1
-    fi
-}
