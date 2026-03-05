@@ -1,0 +1,46 @@
+# =========================
+# ENV
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+
+# =========================
+# Temp
+# =========================
+.tmp/
+temp/
+.cache/
+
+# =========================
+# Runtime artifacts
+# =========================
+*.pid
+*.lock
+
+# =========================
+# DO NOT IGNORE
+# =========================
+# Important: we do NOT ignore submodules
+# We do NOT ignore .gitmodules
+# We do NOT ignore KBS/Seats/Projects directories

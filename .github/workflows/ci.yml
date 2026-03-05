@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check Structure
+        run: |
+          echo "Validating Workstation structure..."
+          test -d blueprint
+          test -f install.sh
+          test -x install.sh
+          echo "✓ Core files exist"
+
+      - name: Validate Scripts
+        run: |
+          echo "Validating shell scripts..."
+          for script in scripts/*.sh; do
+            if [ -f "$script" ]; then
+              bash -n "$script"
+              echo "✓ $script syntax OK"
+            fi
+          done
+
+      - name: Test Installer
+        run: |
+          echo "Testing installer..."
+          # Create test environment
+          mkdir -p /tmp/test-workstation
+          cp -r . /tmp/test-workstation/
+          cd /tmp/test-workstation
+          
+          # Simulate environment
+          echo "ORG_NAME=TestOrg" > .env
+          echo "GITHUB_OWNER=testuser" >> .env
+          
+          # Run checks that don't need interaction
+          bash -n install.sh
+          echo "✓ Installer syntax OK"
+
+      - name: Check Documentation
+        run: |
+          echo "Checking documentation..."
+          test -f README.md
+          test -f LICENSE
+          test -f CONTRIBUTING.md
+          test -f CHANGELOG.md
+          echo "✓ Documentation complete"
