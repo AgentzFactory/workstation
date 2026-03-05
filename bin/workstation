@@ -100,7 +100,7 @@ cmd_onboard() {
         exit 1
     fi
     
-    ORG_DIR="${WORKSTATION_DIR}/orgs/${ORG_NAME}"
+    ORG_DIR="${WORKSTATION_DIR}/centrals/${ORG_NAME}"
     
     if [[ -d "$ORG_DIR" ]]; then
         log_warn "Organization '$ORG_NAME' already exists locally"
@@ -305,11 +305,11 @@ GITIGNORE
     log_success "Workstation onboarding complete!"
     log_header "========================================"
     echo ""
-    echo "Organization: $ORG_NAME"
+    echo "Central: $ORG_NAME"
     echo "SSOT: ${SSOT_REPO_NAME}"
     echo ""
     echo "Next steps:"
-    echo "  workstation org use $ORG_NAME    # Switch to org"
+    echo "  workstation central use $ORG_NAME    # Switch to org"
     echo "  workstation seat create          # Create more seats"
     echo "  workstation project create       # Create projects"
     echo ""
@@ -319,7 +319,7 @@ GITIGNORE
 # ORG COMMANDS
 # ============================================================================
 
-cmd_org_list() {
+cmd_central_list() {
     log_header "Organizations"
     echo ""
     
@@ -329,7 +329,7 @@ cmd_org_list() {
         return
     fi
     
-    for org_config in "${WORKSTATION_DIR}/orgs"/*/config; do
+    for central_config in "${WORKSTATION_DIR}/orgs"/*/config; do
         if [[ -f "$org_config" ]]; then
             source "$org_config"
             echo "  • $ORG_NAME (owner: $GITHUB_OWNER)"
@@ -339,16 +339,16 @@ cmd_org_list() {
     echo ""
 }
 
-cmd_org_use() {
+cmd_central_use() {
     local org_name="${1:-}"
     
     if [[ -z "$org_name" ]]; then
         log_error "Organization name required"
-        echo "Usage: workstation org use <org-name>"
+        echo "Usage: workstation central use <org-name>"
         exit 1
     fi
     
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     
     if [[ ! -d "$org_dir" ]]; then
         log_error "Organization '$org_name' not found"
@@ -357,10 +357,10 @@ cmd_org_use() {
     fi
     
     # Save current org to global config
-    echo "CURRENT_ORG=$org_name" > "$CONFIG_FILE"
+    echo "CURRENT_CENTRAL=$org_name" > "$CONFIG_FILE"
     log_success "Switched to organization: $org_name"
     
-    # Show org info
+    # Show central info
     source "$org_dir/config"
     echo ""
     echo "  SSOT: $SSOT_REPO"
@@ -368,17 +368,17 @@ cmd_org_use() {
     echo ""
 }
 
-cmd_org_info() {
-    local org_name="${1:-${CURRENT_ORG:-}}"
+cmd_central_info() {
+    local org_name="${1:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$org_name" ]]; then
         log_error "No organization specified"
-        echo "Usage: workstation org info <org-name>"
-        echo "   or: workstation org use <org-name>"
+        echo "Usage: workstation central info <org-name>"
+        echo "   or: workstation central use <org-name>"
         exit 1
     fi
     
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     
     if [[ ! -f "$org_dir/config" ]]; then
         log_error "Organization '$org_name' not found"
@@ -387,7 +387,7 @@ cmd_org_info() {
     
     source "$org_dir/config"
     
-    log_header "Organization: $ORG_NAME"
+    log_header "Central: $ORG_NAME"
     echo ""
     echo "  Owner: $GITHUB_OWNER"
     echo "  SSOT: $SSOT_REPO"
@@ -403,7 +403,7 @@ cmd_org_info() {
 
 cmd_seat_create() {
     local seat_name="${1:-}"
-    local org_name="${2:-${CURRENT_ORG:-}}"
+    local org_name="${2:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$seat_name" ]]; then
         read -p "Seat name (e.g., Developer): " seat_name
@@ -415,14 +415,14 @@ cmd_seat_create() {
     fi
     
     if [[ -z "$org_name" ]]; then
-        log_error "Organization not specified"
+        log_error "Central not specified"
         echo "Usage: workstation seat create <name> --org <org>"
-        echo "   or: workstation org use <org>"
+        echo "   or: workstation central use <org>"
         exit 1
     fi
     
     # Load org config
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     source "$org_dir/config"
     
     # Convert to PascalCase for repo name
@@ -580,14 +580,14 @@ GITIGNORE
 }
 
 cmd_seat_list() {
-    local org_name="${1:-${CURRENT_ORG:-}}"
+    local org_name="${1:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$org_name" ]]; then
-        log_error "Organization not specified"
+        log_error "Central not specified"
         exit 1
     fi
     
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     source "$org_dir/config"
     
     log_header "Seats in $org_name"
@@ -613,7 +613,7 @@ cmd_seat_list() {
 
 cmd_project_create() {
     local project_name="${1:-}"
-    local org_name="${2:-${CURRENT_ORG:-}}"
+    local org_name="${2:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$project_name" ]]; then
         read -p "Project name (e.g., api-v2): " project_name
@@ -625,11 +625,11 @@ cmd_project_create() {
     fi
     
     if [[ -z "$org_name" ]]; then
-        log_error "Organization not specified"
+        log_error "Central not specified"
         exit 1
     fi
     
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     source "$org_dir/config"
     
     local project_pascal=$(echo "$project_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
@@ -708,14 +708,14 @@ GITIGNORE
 }
 
 cmd_project_list() {
-    local org_name="${1:-${CURRENT_ORG:-}}"
+    local org_name="${1:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$org_name" ]]; then
-        log_error "Organization not specified"
+        log_error "Central not specified"
         exit 1
     fi
     
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     source "$org_dir/config"
     
     log_header "Projects in $org_name"
@@ -741,18 +741,18 @@ cmd_project_list() {
 
 cmd_kb_add() {
     local kb_name="${1:-}"
-    local org_name="${2:-${CURRENT_ORG:-}}"
+    local org_name="${2:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$kb_name" ]]; then
         read -p "KB name (e.g., engineering): " kb_name
     fi
     
     if [[ -z "$org_name" ]]; then
-        log_error "Organization not specified"
+        log_error "Central not specified"
         exit 1
     fi
     
-    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
     source "$org_dir/config"
     
     local kb_pascal=$(echo "$kb_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
@@ -829,9 +829,9 @@ cmd_status() {
     # Current org
     if [[ -f "$CONFIG_FILE" ]]; then
         source "$CONFIG_FILE"
-        log_info "Current Org: ${CURRENT_ORG:-none}"
+        log_info "Current Central: ${CURRENT_CENTRAL:-none}"
     else
-        log_info "Current Org: none"
+        log_info "Current Central: none"
     fi
     
     echo ""
@@ -842,7 +842,7 @@ cmd_status() {
         for org in "${WORKSTATION_DIR}/orgs"/*; do
             if [[ -d "$org" ]]; then
                 local org_name=$(basename "$org")
-                if [[ "${CURRENT_ORG:-}" == "$org_name" ]]; then
+                if [[ "${CURRENT_CENTRAL:-}" == "$org_name" ]]; then
                     echo "  → $org_name (active)"
                 else
                     echo "  • $org_name"
@@ -871,10 +871,10 @@ USAGE:
 COMMANDS:
     onboard                     Interactive setup for new users
     
-    org                         Organization management
-        org list                List all organizations
-        org use <name>          Switch to organization
-        org info [name]         Show organization details
+    org                         Central management
+        central list                List all centrals
+        central use <name>          Switch to central
+        central info [name]         Show central details
     
     seat                        Seat (agent workspace) management
         seat create [name]      Create a new seat
@@ -900,11 +900,11 @@ EXAMPLES:
     workstation project create api-v2
     
     # Switch organizations
-    workstation org use AcmeCorp
+    workstation central use AcmeCorp
 
 CONFIGURATION:
     Config directory: ~/.workstation/
-    Organizations:    ~/.workstation/orgs/
+    Organizations:    ~/.workstation/centrals/
 
 HELP
 }
@@ -929,9 +929,9 @@ main() {
             local subcmd="${2:-list}"
             shift 2 || true
             case "$subcmd" in
-                list) cmd_org_list ;;
-                use) cmd_org_use "$1" ;;
-                info) cmd_org_info "$1" ;;
+                list) cmd_central_list ;;
+                use) cmd_central_use "$1" ;;
+                info) cmd_central_info "$1" ;;
                 *) log_error "Unknown org command: $subcmd"; show_help; exit 1 ;;
             esac
             ;;

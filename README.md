@@ -1,21 +1,32 @@
 # Workstation 🏗️
 
-**Agent-Ready Organizational Workspaces for Enterprises**
+**Agent-Ready Organizational Workspaces**
 
 [![CI](https://github.com/AgentzFactory/workstation/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentzFactory/workstation/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
 
-Workstation is a CLI tool that creates modular, secure Single Sources of Truth (SSOT) where humans and AI agents collaborate across organizations with clear boundaries and reusable knowledge.
+Workstation creates modular, secure Single Sources of Truth (SSOT) where humans and AI agents collaborate with clear boundaries and reusable knowledge.
 
-## 🎯 What Makes Workstation Different
+## 🎯 Concepto Central vs Seat
 
-Unlike other tools, Workstation is designed for **enterprise organizational structures**:
+Workstation organiza el trabajo en dos niveles:
 
-- **Hierarchical Access**: Admins manage the SSOT, employees only access their Seats
-- **Agent-First Design**: Each Seat is a complete agent workspace with `.openclaw/workspace/`
-- **Modular by Default**: Everything is a git submodule—KBs, Seats, Projects
-- **Enterprise Ready**: Onboarding flows, GitHub integration, org management
+- **Central (SSOT)**: El hub organizacional. Contiene el mapa completo: KBs, Seats y Projects.
+- **Seat**: Un workspace de agente. Contiene `.openclaw/workspace/` con la identidad, memoria y herramientas del agente.
+
+### Permisos (via GitHub)
+
+No reinventamos permisos. Usamos lo que GitHub ya tiene:
+
+| Recurso | Permiso GitHub | Quién accede |
+|---------|---------------|--------------|
+| **Central/SSOT** | Admin/Owner del repo | Quien gestiona la organización |
+| **Seat** | Colaborador del repo del Seat | El agente (humano o IA) asignado |
+| **KB** | Colaborador del repo de la KB | Quien necesite ese conocimiento |
+| **Project** | Colaborador del repo del Project | El equipo del proyecto |
+
+**Ejemplo**: Un Seat `Seat-Developer-Acme` es un repo. Solo los colaboradores de ese repo acceden a ese agente. El SSOT es otro repo. Los equipos pueden tener acceso de solo lectura a ciertas KBs usando GitHub Teams.
 
 ## 🚀 Quick Start
 
@@ -25,104 +36,105 @@ Unlike other tools, Workstation is designed for **enterprise organizational stru
 curl -fsSL https://raw.githubusercontent.com/AgentzFactory/workstation/main/install-cli.sh | bash
 ```
 
-Or manually:
-```bash
-git clone https://github.com/AgentzFactory/workstation.git
-cd workstation
-bash install-cli.sh
-```
-
 ### Onboard
 
 ```bash
 workstation onboard
 ```
 
-This interactive wizard will:
-1. ✅ Authenticate with GitHub
-2. ✅ Create your organization
-3. ✅ Set up the SSOT repository
-4. ✅ Create KB-Core (semantic foundation)
-5. ✅ Optionally create your first Seat
+Wizard interactivo que configura:
+1. Autenticación GitHub
+2. Tu Central (organización)
+3. KB-Core (conocimiento base)
+4. Primer Seat (opcional)
 
-### Daily Usage
+### Uso Diario
 
 ```bash
-# Switch to your org
-workstation org use AcmeCorp
+# Configurar Central activa
+workstation central use MiOrg
 
-# Create a new agent Seat
+# Crear un nuevo Seat (agente)
 workstation seat create Developer
 
-# Create a project
+# Crear un proyecto
 workstation project create api-v2
 
-# Check status
+# Ver estado
 workstation status
 ```
 
-## 📖 Documentation
-
-- [Architecture](docs/architecture.md) — Design philosophy
-- [Getting Started](docs/getting-started.md) — Complete guide
-- [Enterprise Setup](docs/enterprise.md) — Multi-org, governance
-- [CLI Reference](docs/cli.md) — All commands
-
-## 🏛️ Architecture
+## 📁 Estructura
 
 ```
 ~/.workstation/
-├── config                    # Current org
-└── orgs/
-    └── AcmeCorp/
-        ├── config            # Org settings
-        ├── SSOT-AcmeCorp/    # SSOT (hub)
+├── config
+└── centrals/
+    └── Acme/
+        ├── config
+        ├── SSOT-Acme/          # Central (hub)
         │   ├── KBs/
-        │   ├── Seats/        # Submodules
-        │   └── Projects/     # Submodules
+        │   ├── Seats/          # Submódulos
+        │   └── Projects/
         ├── kb-core/
-        ├── Seat-Developer-AcmeCorp/
-        └── Project-ApiV2-AcmeCorp/
+        ├── Seat-Developer-Acme/    # Seat independiente
+        └── Project-ApiV2-Acme/     # Project independiente
 ```
 
-## 👥 User Roles
+## 🎭 Central vs Seat
 
-### Admin (Has SSOT Access)
+### Central (Administradores)
+Quienes gestionan la organización:
 ```bash
-workstation onboard                    # Create org
-workstation seat create Developer      # Create seats
-workstation project create api-v2      # Create projects
-workstation kb add engineering         # Add knowledge bases
+# Tienen acceso al SSOT
+workstation central use MiOrg
+workstation seat create Analyst
+workstation kb add compliance
 ```
 
-### Employee (Seat-only Access)
-Employees typically:
-1. Get invited to a Seat repository
-2. Clone their Seat: `git clone https://github.com/org/Seat-Developer-AcmeCorp.git`
-3. Work in `.openclaw/workspace/`
-4. Push changes to their Seat
-
-They **don't need** the SSOT or workstation CLI—they just need git.
-
-## 🔧 CLI Commands
-
+### Seat (Agentes)
+Un Seat es un repo independiente. El agente (humano o IA) trabaja ahí:
 ```
-workstation onboard              # Interactive setup
-workstation org list             # List organizations
-workstation org use AcmeCorp     # Switch org
-workstation seat create          # Create agent workspace
-workstation seat list            # List seats
-workstation project create       # Create project
-workstation project list         # List projects
-workstation kb add               # Add knowledge base
-workstation status               # Show status
+Seat-Developer-Acme/
+├── .openclaw/
+│   └── workspace/
+│       ├── AGENT.md      # Identidad
+│       ├── MEMORY.md     # Memoria
+│       └── TOOLS.md      # Herramientas
+└── .gitignore
 ```
+
+**Acceso**: El agente solo necesita acceso a su Seat. No necesita ver el SSOT completo.
+
+### Escenarios de Permisos (GitHub nativo)
+
+**Escenario 1**: Dev tiene su Seat
+- Repo: `Seat-Dev-Acme`
+- Colaboradores: `dev1` (write)
+- El dev clona su repo y trabaja. No ve el SSOT.
+
+**Escenario 2**: KB de Compliance (sensitive)
+- Repo: `KB-Compliance`
+- Colaboradores: `legal-team` (write), `managers` (read)
+- Los devs no tienen acceso.
+
+**Escenario 3**: Project cross-team
+- Repo: `Project-Platform-Acme`
+- Colaboradores: `backend-team`, `frontend-team`
+- Ambos equipos contribuyen.
+
+## 📚 Documentación
+
+- [Architecture](docs/architecture.md) — Diseño y filosofía
+- [Getting Started](docs/getting-started.md) — Guía completa
+- [CLI Reference](docs/cli.md) — Referencia de comandos
+- [Permissions](docs/permissions.md) — Cómo manejar accesos
 
 ## 🎓 Examples
 
-- [Minimal Team](examples/minimal-team/) — 2-3 people
-- [Startup](examples/startup/) — Growing team
-- [Enterprise](examples/enterprise/) — Multi-department
+- [minimal](examples/minimal/) — 1 Central, 2 Seats
+- [multi-team](examples/multi-team/) — Varios equipos, KBs compartidas
+- [enterprise](examples/enterprise/) — Múltiples Centrales, gobernanza
 
 ## 🤝 Contributing
 
@@ -134,4 +146,4 @@ MIT — [LICENSE](LICENSE).
 
 ---
 
-**Workstation** — Structure for the agent era.
+**Workstation** — Estructura para organizaciones agentizadas.
