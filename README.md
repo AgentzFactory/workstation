@@ -169,26 +169,45 @@ workstation seat incorporate --url https://github.com/tu/Seat-Dev-Acme
 
 ## 🛣️ Roadmap
 
-### Current (v1.0.x)
-- ✅ CLI with `onboard`, `central`, `seat`, `project`, `kb` commands
-- ✅ GitHub-native permissions (no custom auth)
-- ✅ Modular architecture (everything is a submodule)
-- ✅ Trunk-based development CI/CD
+### Phase 1: CLI Foundation (Current - v1.0.x) ✅
+- [x] CLI with `onboard`, `central`, `seat`, `project`, `kb` commands
+- [x] GitHub-native permissions (no custom auth)
+- [x] Modular architecture (everything is a submodule)
+- [x] Trunk-based development CI/CD
+- [x] Federated model (Seat ↔ Org relationship)
 
-### Next (v1.1.x)
+### Phase 2: CLI Enhancements (v1.1.x)
 - [ ] `workstation seat sync` - Sync Seat changes to Central
 - [ ] `workstation kb update` - Update KB submodules to latest
 - [ ] Template system for Seats (pre-configured agent types)
 - [ ] Validation commands (`workstation validate`)
+- [ ] npm package: `npm install -g @agentz/workstation`
 
-### Future (v2.0)
-- [ ] **npm package**: `npm install -g @agentz/workstation`
-  - Makes installation easier for Node.js environments
-  - Enables programmatic API usage
-  - Integration with other Node-based tools
-- [ ] Web UI for visualizing Central structure
-- [ ] GitHub App for automated Seat provisioning
-- [ ] Multi-Central federation (cross-organization collaboration)
+### Phase 3: Web Platform (v2.0) 🚀
+**Architecture**: Supabase + Cloudflare + Vite
+
+- [ ] **Authentication**: GitHub OAuth via Supabase Auth
+- [ ] **Dashboard**: Vite + React + Tailwind CSS
+- [ ] **API**: Cloudflare Workers (Hono.js)
+- [ ] **Database**: Supabase PostgreSQL + Cloudflare D1 cache
+- [ ] **Deploy**: Cloudflare Pages (global edge)
+
+**Features**:
+- [ ] Visual dashboard for Org management
+- [ ] Project-based access control ("qué KBs ve cada proyecto")
+- [ ] Real-time collaboration
+- [ ] GitHub integration (repos, webhooks, actions)
+- [ ] Invite system for new members
+
+### Phase 4: SaaS Features (v2.1+)
+- [ ] Multi-org visibility (usuario ve todas sus Seats/orgs)
+- [ ] Analytics y reporting
+- [ ] GitHub App oficial
+- [ ] API pública para integraciones
+- [ ] Marketplace de templates
+
+### Architecture Decisions
+See [docs/web-architecture.md](docs/web-architecture.md) for detailed technical design.
 
 ### Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow. We use **fork-based contributions** to optimize costs.
