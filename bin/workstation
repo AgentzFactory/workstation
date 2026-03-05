@@ -571,14 +571,14 @@ GITIGNORE
     log_info "Adding Seat to Central (SSOT)..."
     cd "${SSOT_PATH}"
     
-    # Use absolute path for submodule to avoid relative path issues
-    local seat_absolute_path="${central_dir}/${repo_name}"
-    if git submodule add "${seat_absolute_path}" "Seats/${seat_pascal}" 2>&1; then
+    # Use GitHub URL for submodule (avoids 'file' protocol restrictions)
+    local github_url="https://github.com/${GITHUB_OWNER}/${repo_name}"
+    if git submodule add "${github_url}" "Seats/${seat_pascal}" 2>&1; then
         git commit -m "Add Seat: $seat_name" || log_warn "Nothing to commit"
         log_success "Seat linked to SSOT"
     else
         log_warn "Could not add submodule automatically (may already exist)"
-        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${seat_absolute_path} Seats/${seat_pascal}"
+        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${github_url} Seats/${seat_pascal}"
     fi
     echo ""
     echo "  Local: $repo_path"
@@ -709,13 +709,13 @@ GITIGNORE
     # Add to SSOT
     log_info "Adding Project to Central (SSOT)..."
     cd "${SSOT_PATH}"
-    local project_absolute_path="${central_dir}/${repo_name}"
-    if git submodule add "${project_absolute_path}" "Projects/${project_pascal}" 2>&1; then
+    local project_github_url="https://github.com/${GITHUB_OWNER}/${repo_name}"
+    if git submodule add "${project_github_url}" "Projects/${project_pascal}" 2>&1; then
         git commit -m "Add Project: $project_name" || log_warn "Nothing to commit"
         log_success "Project linked to SSOT"
     else
         log_warn "Could not add submodule automatically"
-        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${project_absolute_path} Projects/${project_pascal}"
+        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${project_github_url} Projects/${project_pascal}"
     fi
     
     log_success "Project '$project_name' created"
@@ -813,13 +813,13 @@ GITIGNORE
     # Add to SSOT
     log_info "Adding KB to Central (SSOT)..."
     cd "${SSOT_PATH}"
-    local kb_absolute_path="${central_dir}/${repo_name}"
-    if git submodule add "${kb_absolute_path}" "KBs/${kb_pascal}" 2>&1; then
+    local kb_github_url="https://github.com/${GITHUB_OWNER}/${repo_name}"
+    if git submodule add "${kb_github_url}" "KBs/${kb_pascal}" 2>&1; then
         git commit -m "Add KB: $kb_name" || log_warn "Nothing to commit"
         log_success "KB linked to SSOT"
     else
         log_warn "Could not add submodule automatically"
-        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${kb_absolute_path} KBs/${kb_pascal}"
+        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${kb_github_url} KBs/${kb_pascal}"
     fi
     
     log_success "KB '$kb_name' added"
