@@ -1,278 +1,345 @@
 # Getting Started with Workstation
 
-This guide walks you through setting up your first Workstation from scratch.
+Guía paso a paso para configurar tu primer Workstation.
 
-## Prerequisites
+## ¿Qué es Workstation?
 
-- Git (2.30+)
+Workstation es una **herramienta** que crea:
+- **SSOT-$ORGNAME/** → Tu repositorio organizacional
+- **kb-core/** → Conocimiento semántico compartido  
+- **seat-** → Workspaces independientes para agentes
+
+## Prerrequisitos
+
+- Git 2.30+
 - Bash (Linux/macOS/WSL)
-- GitHub account (optional, for remote storage)
-- GitHub CLI `gh` (optional, for automation)
+- GitHub account
 
-## Installation
+## Instalación
 
-### 1. Clone Workstation
+### 1. Clona Workstation (la herramienta)
 
 ```bash
 git clone https://github.com/yourorg/workstation.git
 cd workstation
 ```
 
-### 2. Run the Installer
+### 2. Configura el entorno
+
+```bash
+# Copia el ejemplo
+cp .env.example .env
+
+# Edita con tus datos
+nano .env
+```
+
+```bash
+ORG_NAME=MiOrganizacion
+GITHUB_OWNER=miusuario
+```
+
+### 3. Ejecuta el instalador
 
 ```bash
 bash install.sh
 ```
 
-The installer will:
-- Check dependencies
-- Ask for organization details
-- Create the SSOT structure
-- Set up utility scripts
-- Make the initial git commit
+Esto crea:
+```
+workstation/          ← Herramienta (donde estás)
+SSOT-MiOrganizacion/  ← Tu SSOT (nuevo, al lado)
+kb-core/              ← KB semántica (nuevo, al lado)
+```
 
-### 3. Configure Environment
+## Tu Primer Seat (Agente)
 
-Edit `.env` to set your organization details:
+Un Seat es un **repositorio independiente** con `.openclaw/workspace/`:
 
 ```bash
-ORG_NAME=MyOrg
-GITHUB_OWNER=myusername
-```
-
-## Your First Workstation
-
-After installation, your structure looks like:
-
-```
-workstation/
-├── SSOT/
-│   ├── KBs/
-│   │   └── KB-Core/          # Semantic foundation
-│   ├── Seats/                # (empty, ready for agents)
-│   ├── Projects/             # (empty, ready for work)
-│   └── Sprints/              # (empty, ready for planning)
-├── scripts/
-│   ├── create-seat.sh
-│   ├── create-project.sh
-│   └── create-sprint.sh
-├── .env
-├── .gitignore
-└── README.md
-```
-
-## Creating Your First Seat
-
-A Seat is an agent workspace. Let's create one:
-
-```bash
+# Desde workstation/
 bash scripts/create-seat.sh Developer
 ```
 
-This creates:
-
+Esto crea:
 ```
-SSOT/Seats/Developer/
-├── AGENT.md      # Define the agent
-├── MEMORY.md     # Long-term memory
-└── TOOLS.md      # Available capabilities
+seat-developer/
+├── .openclaw/
+│   └── workspace/
+│       ├── AGENT.md      # ← Define el agente
+│       ├── MEMORY.md     # ← Memoria persistente
+│       └── TOOLS.md      # ← Configuración
+├── .gitignore            # ← Ignora .env
+└── README.md
 ```
 
-Edit `AGENT.md`:
+### Configura el Seat
+
+```bash
+cd ../seat-developer
+
+# Edita la identidad del agente
+nano .openclaw/workspace/AGENT.md
+```
 
 ```markdown
 # Developer
 
-**Role**: Software development and code review
+**Role**: Software Developer
 **Created**: 2026-03-05
 
 ## Purpose
 
-Write, review, and maintain code across projects.
+Write, review, and maintain code.
 
 ## Boundaries
 
-- ✅ Can: Write code, run tests, review PRs
-- ❌ Cannot: Deploy to production, access customer data
+- ✅ Can: Write code, run tests
+- ❌ Cannot: Deploy to production
 
 ## Tools
 
-- Code editor
+- VS Code
 - Git
-- Test runners
-- Linters
-
-## Memory
-
-- Preferred code style: Clean, documented
-- Tech stack: Python, TypeScript
+- Docker
 ```
 
-Commit your Seat:
+### Inicializa el Seat
 
 ```bash
-git add SSOT/Seats/Developer
+# Haz el primer commit
+git add -A
+git commit -m "Initial Developer seat"
+
+# Conecta a GitHub (opcional)
+git remote add origin https://github.com/miusuario/seat-developer.git
+git push -u origin main
+```
+
+## Integra el Seat en tu SSOT
+
+```bash
+# Ve a tu SSOT
+cd ../SSOT-MiOrganizacion
+
+# Agrega el Seat como submódulo
+git submodule add ../seat-developer Seats/Developer
+
+# Commit
+git add -A
 git commit -m "Add Developer seat"
 ```
 
-## Creating Your First Project
+## Crea tu Primer Proyecto
+
+Los proyectos son **locales** al SSOT:
 
 ```bash
-bash scripts/create-project.sh api-v2
+# Desde SSOT-MiOrganizacion/
+bash ../workstation/scripts/create-project.sh api-v2
 ```
 
-Edit `SSOT/Projects/api-v2/README.md`:
+Esto crea:
+```
+Projects/api-v2/
+├── README.md
+└── .gitignore
+```
 
+Edita `Projects/api-v2/README.md`:
 ```markdown
 # Project: api-v2
 
 **Status**: In Progress
-**Created**: 2026-03-05
 
 ## Objective
 
-Redesign the public API for better developer experience.
-
-## Scope
-
-**In scope**:
-- REST endpoints
-- GraphQL layer
-- Documentation
-
-**Out of scope**:
-- Authentication changes
-- Database schema changes
+Redesign the public API.
 
 ## Related
 
 - **Seats**: Developer
-- **KBs**: KB-Core, KB-Engineering
+- **KBs**: KB-Core
 
 ## Deliverables
 
-- [ ] API specification
+- [ ] API spec
 - [ ] Implementation
-- [ ] Documentation
-- [ ] Migration guide
+- [ ] Docs
 ```
 
-## Creating Your First Sprint
+Commit:
+```bash
+git add Projects/api-v2
+git commit -m "Add api-v2 project"
+```
+
+## Crea tu Primer Sprint
 
 ```bash
-bash scripts/create-sprint.sh 2026-03-foundation
+bash ../workstation/scripts/create-sprint.sh 2026-03-foundation
 ```
 
-Edit `SSOT/Sprints/2026-03-foundation/README.md`:
+Edita `Sprints/2026-03-foundation/README.md` con fechas y metas.
 
-```markdown
-# Sprint: 2026-03-foundation
+## Estructura Final
 
-**Status**: Active
-**Start**: 2026-03-01
-**End**: 2026-03-31
-
-## Goals
-
-1. Complete API v2 foundation
-2. Set up CI/CD pipeline
-3. Document development workflows
-
-## Projects
-
-- api-v2
-
-## Deliverables
-
-- [x] Project scaffolding
-- [ ] Core endpoints
-- [ ] Test suite
+```
+~/work/
+├── workstation/              ← Herramienta
+│   ├── scripts/
+│   ├── docs/
+│   └── install.sh
+│
+├── SSOT-MiOrganizacion/      ← Tu SSOT
+│   ├── .git/
+│   ├── KBs/
+│   │   └── KB-Core/          ← submódulo → ../kb-core/
+│   ├── Seats/
+│   │   └── Developer/        ← submódulo → ../seat-developer/
+│   ├── Projects/
+│   │   └── api-v2/
+│   ├── Sprints/
+│   │   └── 2026-03-foundation/
+│   └── SSOT.md
+│
+├── kb-core/                  ← KB semántica
+│   ├── README.md
+│   └── .git/
+│
+└── seat-developer/           ← Seat independiente
+    ├── .openclaw/
+    │   └── workspace/
+    │       ├── AGENT.md
+    │       ├── MEMORY.md
+    │       └── TOOLS.md
+    └── .git/
 ```
 
-## Pushing to GitHub
+## Flujo de Trabajo Diario
 
-Make your Workstation accessible to your team:
+### Mañana
 
 ```bash
-# Create repository on GitHub
-git remote add origin https://github.com/myusername/MyOrg-SSOT.git
+cd ~/work/SSOT-MiOrganizacion
+
+# Actualiza submódulos
+git submodule update --remote
+
+# Revisa el sprint actual
+cat Sprints/2026-03-foundation/README.md
+```
+
+### Durante el día
+
+```bash
+# Trabaja en el Seat
+cd Seats/Developer/.openclaw/workspace/
+nano MEMORY.md
+
+# O en un proyecto
+cd ~/work/SSOT-MiOrganizacion
+nano Projects/api-v2/README.md
+```
+
+### Commit de cambios
+
+```bash
+# Si modificaste el Seat
+cd Seats/Developer
+git add -A
+git commit -m "Update Developer memory"
+
+# Luego en el SSOT
+cd ../..
+git add Seats/Developer  # Actualiza referencia del submódulo
+git commit -m "Update Developer seat"
+```
+
+## Agregar una Knowledge Base
+
+```bash
+# Crea la KB como repo independiente
+cd ~/
+git init kb-marketing
+cd kb-marketing
+echo "# KB-Marketing" > README.md
+git add -A && git commit -m "Initial"
+git remote add origin https://github.com/miusuario/kb-marketing.git
+git push -u origin main
+
+# Agrega al SSOT
+cd ~/work/SSOT-MiOrganizacion
+git submodule add ~/kb-marketing KBs/KB-Marketing
+git commit -m "Add KB-Marketing"
+```
+
+## Push a GitHub
+
+```bash
+# SSOT
+cd ~/work/SSOT-MiOrganizacion
+git remote add origin https://github.com/miusuario/SSOT-MiOrganizacion.git
+git push -u origin main
+
+# KB-Core
+cd ~/work/kb-core
+git remote add origin https://github.com/miusuario/kb-core.git
+git push -u origin main
+
+# Seats (por cada uno)
+cd ~/work/seat-developer
+git remote add origin https://github.com/miusuario/seat-developer.git
 git push -u origin main
 ```
 
-## Adding a Knowledge Base
-
-Knowledge Bases are shared via git submodules:
+## Clonar en otra máquina
 
 ```bash
-# Add a domain-specific KB
-git submodule add https://github.com/myorg/kb-engineering.git SSOT/KBs/KB-Engineering
+# Clona el SSOT con todos los submódulos
+git clone --recurse-submodules https://github.com/miusuario/SSOT-MiOrganizacion.git
 
-# Initialize the submodule
-git submodule update --init
-
-# Commit the changes
-git add .gitmodules SSOT/KBs/KB-Engineering
-git commit -m "Add KB-Engineering submodule"
-```
-
-## Daily Workflow
-
-### Morning Standup
-
-1. Check current sprint: `cat SSOT/Sprints/2026-03-foundation/README.md`
-2. Review your Seat's MEMORY.md
-3. Pick up tasks from Projects
-
-### During Work
-
-1. Update Project deliverables
-2. Document decisions in Project DECISIONS.md
-3. Update Seat MEMORY.md with new context
-
-### End of Day
-
-1. Commit changes: `git add -A && git commit -m "Update progress"`
-2. Push to remote: `git push`
-3. Review tomorrow's priorities
-
-## Collaboration
-
-### Team Members
-
-Each team member:
-1. Clones the SSOT repo
-2. Creates their own Seat
-3. Contributes to shared Projects
-
-### Agents
-
-AI agents:
-1. Read their Seat configuration
-2. Access referenced KBs
-3. Work within defined boundaries
-4. Update their MEMORY.md
-
-## Next Steps
-
-- [Managing Seats](seats.md): Advanced Seat configuration
-- [Managing Projects](projects.md): Project organization
-- [Best Practices](best-practices.md): Tips for success
-
-## Troubleshooting
-
-### Git Submodule Issues
-
-```bash
-# Submodules not populated
+# O si ya clonaste sin --recurse-submodules:
 git submodule update --init --recursive
-
-# Update all submodules to latest
-git submodule update --remote
 ```
 
-### Permission Issues
+## Siguientes Pasos
+
+- [Architecture](architecture.md) — Entiende el diseño
+- [Best Practices](best-practices.md) — Consejos útiles
+- [Examples](../examples/) — Ver casos de uso
+
+## Solución de Problemas
+
+### Los submódulos están vacíos
 
 ```bash
-# Make scripts executable
-chmod +x scripts/*.sh
+git submodule update --init --recursive
+```
+
+### Cambios en el Seat no se reflejan
+
+```bash
+# Asegúrate de hacer commit en el Seat PRIMERO
+cd Seats/Developer
+git add -A && git commit -m "Update"
+
+# Luego en el SSOT
+cd ../..
+git add Seats/Developer
+git commit -m "Update Developer reference"
+```
+
+### Conflictos en submódulos
+
+```bash
+# Entra al submódulo y resuelve
+cd Seats/Developer
+git pull
+git push
+
+# Vuelve al SSOT
+cd ../..
+git add Seats/Developer
+git commit -m "Resolve Developer submodule"
 ```

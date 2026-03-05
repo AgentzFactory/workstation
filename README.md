@@ -8,192 +8,170 @@
 
 Workstation creates structured, secure Single Sources of Truth (SSOT) where humans and AI agents collaborate across projects with clear boundaries and reusable knowledge.
 
-## 🎯 What It Creates
+## 🎯 Concepto
+
+Workstation es una **herramienta**, no un repositorio de trabajo. Al ejecutar `install.sh`, crea:
+
+- **SSOT-$ORGNAME/** → Tu repositorio organizacional
+- **kb-core/** → Base de conocimiento semántica
+- **seat-** → Workspaces de agentes (creados bajo demanda)
+
+Cada **Seat** es un repositorio independiente con estructura `.openclaw/workspace/` para persistencia completa del entorno del agente.
+
+## 🏛️ Arquitectura
 
 ```
-YourOrg/
-└── SSOT/                      # Single Source of Truth
-    ├── KBs/                   # Knowledge Bases (submodules)
-    │   └── KB-Core/          # Core semantics & definitions
-    ├── Seats/                 # Agent contexts
-    │   ├── Developer/
-    │   ├── Researcher/
-    │   └── Writer/
-    ├── Projects/              # Active work streams
-    │   ├── api-redesign/
-    │   └── mobile-app/
-    └── Sprints/               # Time-boxed iterations
-        ├── 2026-03-foundation/
-        └── 2026-04-scale/
+┌─────────────────────────────────────────────────────────────────────┐
+│                          WORKSTATION                                │
+│                     (Esta herramienta)                              │
+│                                                                     │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│  │ install.sh  │  │  scripts/   │  │   docs/     │                 │
+│  └─────────────┘  └─────────────┘  └─────────────┘                 │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ crea
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SSOT-$ORGNAME/                                   │
+│              (Repositorio organizacional)                           │
+│                                                                     │
+│  ┌──────────────────┐  ┌──────────────────┐                        │
+│  │      KBs/        │  │     Seats/       │                        │
+│  │   (submódulos)   │  │   (submódulos)   │                        │
+│  │                  │  │                  │                        │
+│  │  ┌────────────┐  │  │  ┌───────────┐   │                        │
+│  │  │  KB-Core   │  │  │  │ Developer │   │  ← .openclaw/workspace/│
+│  │  │(kb-core/  )│  │  │  │  (seat/)  │   │     ├── AGENT.md      │
+│  │  └────────────┘  │  │  └───────────┘   │     ├── MEMORY.md     │
+│  │                  │  │                  │     └── TOOLS.md      │
+│  │  ┌────────────┐  │  │  ┌───────────┐   │                        │
+│  │  │KB-Domain/  │  │  │  │Researcher │   │                        │
+│  │  └────────────┘  │  │  └───────────┘   │                        │
+│  └──────────────────┘  └──────────────────┘                        │
+│                                                                     │
+│  ┌──────────────────┐  ┌──────────────────┐                        │
+│  │    Projects/     │  │    Sprints/      │                        │
+│  │     (local)      │  │     (local)      │                        │
+│  └──────────────────┘  └──────────────────┘                        │
+└─────────────────────────────────────────────────────────────────────┘
 ```
-
-## ✨ Key Features
-
-- 🧠 **Structured Context** — Agents know exactly where to find information
-- 📦 **Modular Knowledge** — Reusable KBs via git submodules
-- 🪑 **Agent Seats** — Isolated workspaces with clear boundaries
-- 📊 **Project Management** — Organized work streams with clear objectives
-- 🏃 **Sprint Planning** — Time-boxed iterations for focused delivery
-- 🔒 **Security-First** — Clear permissions and audit trails
-- 🌐 **Human + AI** — Built for collaboration, not replacement
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Clone Workstation
+# 1. Clona Workstation (la herramienta)
 git clone https://github.com/yourorg/workstation.git
 cd workstation
 
-# 2. Run the installer
+# 2. Ejecuta el instalador
 bash install.sh
+# Te pedirá ORG_NAME y GITHUB_OWNER
+# Crea ../SSOT-$ORGNAME/ y ../kb-core/
 
-# 3. Create your first Seat (agent workspace)
+# 3. Crea tu primer Seat (agente)
 bash scripts/create-seat.sh Developer
+# Crea ../seat-developer/ con .openclaw/workspace/
 
-# 4. Create a Project
-bash scripts/create-project.sh api-v2
+# 4. Agrega el Seat a tu SSOT
+cd ../SSOT-$ORGNAME
+git submodule add ../seat-developer Seats/Developer
 
-# 5. Create a Sprint
-bash scripts/create-sprint.sh 2026-03-foundation
+# 5. Crea un Proyecto (local al SSOT)
+bash ../workstation/scripts/create-project.sh api-v2
 ```
 
-## 🏛️ Architecture
+## 📁 Estructura de un Seat
+
+Cada Seat es un **repositorio independiente**:
 
 ```
-+====================================================================+
-|                            WORKSTATION                             |
-|                                                                    |
-|  +--------------------------------------------------------------+  |
-|  |                           SSOT/                              |  |
-|  |                (Single Source of Truth)                      |  |
-|  |                                                              |  |
-|  |  +-------------------+    +-------------------------------+  |  |
-|  |  |        KBs/       |    |            Seats/             |  |  |
-|  |  |                   |    |                               |  |  |
-|  |  |  +-------------+  |    |  +-----------+  +-----------+ |  |  |
-|  |  |  |   KB-Core   |  |    |  | Developer |  | Researcher| |  |  |
-|  |  |  | (submodule) |  |    |  +-----------+  +-----------+ |  |  |
-|  |  |  +-------------+  |    |                               |  |  |
-|  |  +-------------------+    +-------------------------------+  |  |
-|  |                                                              |  |
-|  |     +-------------+              +----------------------+    |  |
-|  |     |  Projects/  |              |       Sprints/       |    |  |
-|  |     +-------------+              +----------------------+    |  |
-|  +--------------------------------------------------------------+  |
-+====================================================================+
+seat-developer/
+├── .openclaw/
+│   └── workspace/          # Workspace del agente
+│       ├── AGENT.md        # Identidad y propósito
+│       ├── MEMORY.md       # Memoria persistente
+│       └── TOOLS.md        # Configuración de herramientas
+├── .gitignore              # Ignora .env y archivos sensibles
+└── README.md               # Documentación del Seat
 ```
 
-### Core Components
+Esto permite:
+- ✅ Persistencia completa del entorno del agente
+- ✅ Versionado independiente del agente
+- ✅ Reutilización del Seat en múltiples SSOTs
+- ✅ Backup y migración sencilla
 
-| Component | Purpose | Example |
-|-----------|---------|---------|
-| **KBs** | Knowledge Bases define *what things mean* | KB-Core, KB-Engineering |
-| **Seats** | Agent contexts define *who acts* | Developer, Designer |
-| **Projects** | Work streams define *what to achieve* | api-redesign |
-| **Sprints** | Iterations define *when to deliver* | 2026-03-foundation |
+## 📁 Estructura de una KB
+
+Cada Knowledge Base es un **repositorio independiente**:
+
+```
+kb-engineering/
+├── README.md               # Documentación de la KB
+├── standards/              # Estándares y guías
+├── templates/              # Plantillas
+└── .gitignore
+```
 
 ## 📖 Documentation
 
-- [Architecture Overview](docs/architecture.md) — Deep dive into design principles
-- [Getting Started](docs/getting-started.md) — Complete setup guide
-- [Best Practices](docs/best-practices.md) — Tips for effective use
-- [Managing Seats](docs/seats.md) — Agent workspace management
-- [Managing Projects](docs/projects.md) — Project organization
-- [Managing Sprints](docs/sprints.md) — Sprint planning
-- [Knowledge Bases](docs/kbs.md) — KB management
-
-## 📁 Repository Structure
-
-```
-workstation/
-├── blueprint/              # Template files for new SSOTs
-├── docs/                  # Documentation
-├── examples/              # Example configurations
-│   ├── minimal-team/     # 2-3 person setup
-│   ├── startup/          # Growing team
-│   └── enterprise/       # Large organization
-├── scripts/               # Utility scripts
-│   ├── create-seat.sh
-│   ├── create-project.sh
-│   └── create-sprint.sh
-├── tests/                 # Test suites
-├── install.sh            # Main installer
-├── LICENSE               # MIT License
-├── CONTRIBUTING.md       # Contribution guide
-└── CHANGELOG.md          # Version history
-```
+- [Architecture](docs/architecture.md) — Diseño profundo de la arquitectura
+- [Getting Started](docs/getting-started.md) — Guía de inicio paso a paso
+- [Best Practices](docs/best-practices.md) — Consejos y buenas prácticas
 
 ## 🎓 Examples
 
-### Minimal Team (2-3 people)
+| Ejemplo | Descripción | Tamaño |
+|---------|-------------|--------|
+| [minimal-team](examples/minimal-team/) | 2-3 personas, 1 SSOT | Pequeño |
+| [startup](examples/startup/) | Equipo creciente, múltiples KBs | Mediano |
+| [enterprise](examples/enterprise/) | Múltiples SSOTs, gobernanza | Grande |
 
-Perfect for small teams getting started:
+## 🔧 Scripts Disponibles
+
+| Script | Descripción | Dónde ejecutar |
+|--------|-------------|----------------|
+| `install.sh` | Crea SSOT-$ORGNAME y kb-core | En workstation/ |
+| `create-seat.sh` | Crea un nuevo Seat (repo independiente) | En workstation/ |
+| `create-project.sh` | Crea un proyecto | En SSOT-$ORGNAME/ |
+| `create-sprint.sh` | Crea un sprint | En SSOT-$ORGNAME/ |
+
+## 🔄 Flujo de Trabajo
 
 ```bash
-cd examples/minimal-team
-bash ../../install.sh
-bash ../../scripts/create-seat.sh Developer
-bash ../../scripts/create-project.sh website
+# 1. Setup inicial
+bash install.sh
+
+# 2. Desarrollo diario
+cd ../SSOT-MiOrg
+
+# 3. Crear un Seat para un nuevo agente
+bash ../workstation/scripts/create-seat.sh Analista
+
+# 4. El Seat es un repo independiente
+cd ../seat-analista
+# ... trabaja en .openclaw/workspace/
+git add -A && git commit -m "Update memory"
+
+# 5. Agrega el Seat al SSOT
+cd ../SSOT-MiOrg
+git submodule add ../seat-analista Seats/Analista
+git commit -m "Add Analista seat"
+
+# 6. Crea proyectos locales
+bash ../workstation/scripts/create-project.sh nuevo-proyecto
 ```
-
-[See full example →](examples/minimal-team/)
-
-### Startup (10-20 people)
-
-Multiple teams with domain KBs:
-
-```bash
-cd examples/startup
-bash ../../install.sh
-git submodule add https://github.com/company/kb-engineering.git SSOT/KBs/KB-Engineering
-```
-
-[See full example →](examples/startup/)
-
-### Enterprise (100+ people)
-
-Multi-department with governance:
-
-- Central KB registry
-- Standardized templates
-- Automated compliance
-- Cross-department coordination
-
-[See full example →](examples/enterprise/)
 
 ## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Quick Contributions
-
-- 🐛 [Report bugs](../../issues/new?template=bug_report.yml)
-- 💡 [Suggest features](../../issues/new?template=feature_request.yml)
-- 📚 [Improve docs](../../issues/new?template=documentation.yml)
-- 🔧 [Submit PRs](../../pulls)
-
-## 🛣️ Roadmap
-
-- [ ] GUI for visual SSOT management
-- [ ] Plugin system for custom KB types
-- [ ] Integration with popular AI platforms
-- [ ] Migration tools from other systems
-- [ ] Web-based collaboration features
-
-See [Issues](../../issues) for detailed plans.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📜 License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by the need for structured human-AI collaboration
-- Built for teams who value clear boundaries and reusable knowledge
-- Designed with agents in mind from day one
+MIT License — see [LICENSE](LICENSE).
 
 ---
 
-**Workstation** — Structure for the agent era.
+**Workstation** — Estructura para la era de los agentes.
 
-[Documentation](docs/) • [Examples](examples/) • [Contributing](CONTRIBUTING.md) • [Changelog](CHANGELOG.md)
+[Docs](docs/) • [Examples](examples/) • [Contributing](CONTRIBUTING.md)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Create a new Project
+# Create a new Project within the current SSOT
 #
 
 set -euo pipefail
@@ -12,7 +12,15 @@ if [[ -z "$PROJECT_NAME" ]]; then
     exit 1
 fi
 
-PROJECT_DIR="SSOT/Projects/$PROJECT_NAME"
+# Check if we're in an SSOT directory
+if [[ ! -f "SSOT.md" ]] && [[ ! -d "Projects" ]]; then
+    echo "Error: Must run from an SSOT directory"
+    echo "Current directory: $(pwd)"
+    echo "Expected: SSOT-<ORG_NAME>/"
+    exit 1
+fi
+
+PROJECT_DIR="Projects/$PROJECT_NAME"
 
 if [[ -d "$PROJECT_DIR" ]]; then
     echo "Error: Project '$PROJECT_NAME' already exists"
@@ -21,11 +29,12 @@ fi
 
 mkdir -p "$PROJECT_DIR"
 
-cat > "$PROJECT_DIR/README.md" <<EOF
+cat > "$PROJECT_DIR/README.md" <>EOF
 # Project: $PROJECT_NAME
 
-**Status**: Planning
-**Created**: $(date -u +"%Y-%m-%d")
+**Status**: Planning  
+**Created**: $(date -u +"%Y-%m-%d")  
+**Last Updated**: $(date -u +"%Y-%m-%d")
 
 ## Objective
 
@@ -33,26 +42,54 @@ cat > "$PROJECT_DIR/README.md" <<EOF
 
 ## Scope
 
-<!-- Inclusions and exclusions -->
+**In Scope**:
+- <!-- Item 1 -->
+- <!-- Item 2 -->
+
+**Out of Scope**:
+- <!-- Item 1 -->
+- <!-- Item 2 -->
 
 ## Related
 
 - **Seats**: <!-- Link relevant seats -->
 - **KBs**: <!-- Link knowledge bases -->
 - **Sprints**: <!-- Link sprints -->
+- **Dependencies**: <!-- Other projects this depends on -->
 
 ## Deliverables
 
 - [ ] <!-- Deliverable 1 -->
 - [ ] <!-- Deliverable 2 -->
+- [ ] <!-- Deliverable 3 -->
 
 ## Decisions
 
-<!-- Key decisions log -->
+### <!-- YYYY-MM-DD: Decision Title -->
+
+**Context**: <!-- Background -->  
+**Decision**: <!-- What was decided -->  
+**Consequences**: <!-- Impact -->
+
+## Notes
+
+<!-- Additional notes -->
 EOF
 
-echo "✓ Project created: $PROJECT_DIR"
+cat > "$PROJECT_DIR/.gitignore" <>'GITIGNORE'
+# Project-specific ignores
+.env
+.env.local
+*.tmp
+.tmp/
+cache/
+GITIGNORE
+
+echo ""
+echo "✅ Project created: $PROJECT_DIR"
 echo ""
 echo "Next steps:"
 echo "  1. Edit $PROJECT_DIR/README.md"
-echo "  2. Commit: git add $PROJECT_DIR && git commit -m 'Add project: $PROJECT_NAME'"
+echo "  2. Commit the project:"
+echo "     git add $PROJECT_DIR"
+echo "     git commit -m 'Add project: $PROJECT_NAME'"
