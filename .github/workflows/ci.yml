@@ -8,11 +8,10 @@ on:
     # Support PRs from forks - this is the cost-efficient approach
     # External contributors must fork and submit PRs
     # No direct branch creation costs on the org repo
-
-types:
-  - opened
-  - synchronize
-  - reopened
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
