@@ -1037,81 +1037,6 @@ cmd_seat_incorporate() {
         exit 1
     fi
 }
-main() {
-    local command="${1:-help}"
-    
-    # Load current org if exists
-    if [[ -f "$CONFIG_FILE" ]]; then
-        source "$CONFIG_FILE"
-    fi
-    
-    case "$command" in
-        onboard)
-            cmd_onboard
-            ;;
-        central|org)
-            local subcmd="${2:-list}"
-            shift 2 || true
-            case "$subcmd" in
-                list) cmd_central_list ;;
-                use) cmd_central_use "$1" ;;
-                info) cmd_central_info "$1" ;;
-                *) log_error "Unknown central command: $subcmd"; show_help; exit 1 ;;
-            esac
-            ;;
-        seat)
-            local subcmd="${2:-list}"
-            shift 2 || true
-            case "$subcmd" in
-                create) cmd_seat_create "$1" ;;
-                join) cmd_seat_join "$@" ;;
-                incorporate) cmd_seat_incorporate "$@" ;;
-                list) cmd_seat_list "$1" ;;
-                *) log_error "Unknown seat command: $subcmd"; show_help; exit 1 ;;
-            esac
-            ;;
-        project)
-            local subcmd="${2:-list}"
-            shift 2 || true
-            case "$subcmd" in
-                create) cmd_project_create "$1" ;;
-                list) cmd_project_list "$1" ;;
-                *) log_error "Unknown project command: $subcmd"; show_help; exit 1 ;;
-            esac
-            ;;
-        kb)
-            local subcmd="${2:-list}"
-            shift 2 || true
-            case "$subcmd" in
-                add) cmd_kb_add "$1" ;;
-                list) cmd_kb_list ;;
-                *) log_error "Unknown kb command: $subcmd"; show_help; exit 1 ;;
-            esac
-            ;;
-        sync)
-            cmd_sync
-            ;;
-        status)
-            cmd_status
-            ;;
-        help|--help|-h)
-            show_help
-            ;;
-        *)
-            log_error "Unknown command: $command"
-            show_help
-            exit 1
-            ;;
-    esac
-}
-
-main "$@"
-
-# ============================================================================
-# FEDERATED FUNCTIONS (Seat joins Org)
-# ============================================================================
-
-
 # ============================================================================
 # MVP COMMANDS (Quick wins)
 # ============================================================================
@@ -1221,3 +1146,80 @@ cmd_sync() {
     log_success "Sync complete"
     echo ""
 }
+
+main() {
+    local command="${1:-help}"
+    
+    # Load current org if exists
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+    fi
+    
+    case "$command" in
+        onboard)
+            cmd_onboard
+            ;;
+        central|org)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                list) cmd_central_list ;;
+                use) cmd_central_use "$1" ;;
+                info) cmd_central_info "$1" ;;
+                *) log_error "Unknown central command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        seat)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                create) cmd_seat_create "$1" ;;
+                join) cmd_seat_join "$@" ;;
+                incorporate) cmd_seat_incorporate "$@" ;;
+                list) cmd_seat_list "$1" ;;
+                *) log_error "Unknown seat command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        project)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                create) cmd_project_create "$1" ;;
+                list) cmd_project_list "$1" ;;
+                *) log_error "Unknown project command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        kb)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                add) cmd_kb_add "$1" ;;
+                list) cmd_kb_list ;;
+                *) log_error "Unknown kb command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        sync)
+            cmd_sync
+            ;;
+        status)
+            cmd_status
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
+
+# ============================================================================
+# FEDERATED FUNCTIONS (Seat joins Org)
+# ============================================================================
+
+
+# ============================================================================
