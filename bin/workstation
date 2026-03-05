@@ -1,0 +1,978 @@
+#!/usr/bin/env bash
+#
+# Workstation CLI - Main entry point
+# Usage: workstation [command] [options]
+#
+
+set -euo pipefail
+
+# Configuration
+VERSION="1.0.0"
+WORKSTATION_DIR="${HOME}/.workstation"
+CONFIG_FILE="${WORKSTATION_DIR}/config"
+BIN_DIR="${HOME}/.local/bin"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Logging
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_header() { echo -e "${CYAN}$1${NC}"; }
+
+# Ensure workstation directory exists
+init_workstation() {
+    if [[ ! -d "$WORKSTATION_DIR" ]]; then
+        mkdir -p "$WORKSTATION_DIR"
+        mkdir -p "$WORKSTATION_DIR/orgs"
+        mkdir -p "$WORKSTATION_DIR/templates"
+    fi
+}
+
+# Check if gh is authenticated
+check_gh_auth() {
+    if ! gh auth status &>/dev/null; then
+        return 1
+    fi
+    return 0
+}
+
+# Get current user from gh
+get_gh_user() {
+    gh api user -q .login 2>/dev/null || echo ""
+}
+
+# ============================================================================
+# ONBOARD COMMAND
+# ============================================================================
+
+cmd_onboard() {
+    log_header "========================================"
+    log_header "  Welcome to Workstation"
+    log_header "  Agent-Ready Organizational Workspaces"
+    log_header "========================================"
+    echo ""
+    
+    init_workstation
+    
+    # Step 1: GitHub Authentication
+    log_info "Step 1: GitHub Authentication"
+    
+    if check_gh_auth; then
+        GH_USER=$(get_gh_user)
+        log_success "Already authenticated as: $GH_USER"
+    else
+        log_warn "GitHub CLI not authenticated"
+        read -p "Authenticate with GitHub now? [Y/n]: " auth_now
+        
+        if [[ ! "$auth_now" =~ ^[Nn]$ ]]; then
+            gh auth login
+            GH_USER=$(get_gh_user)
+            log_success "Authenticated as: $GH_USER"
+        else
+            log_error "GitHub authentication required"
+            exit 1
+        fi
+    fi
+    
+    echo ""
+    
+    # Step 2: Organization Setup
+    log_info "Step 2: Organization Setup"
+    
+    read -p "Organization name (e.g., AcmeCorp): " ORG_NAME
+    
+    if [[ -z "$ORG_NAME" ]]; then
+        log_error "Organization name is required"
+        exit 1
+    fi
+    
+    # Validate org name (no spaces, alphanumeric + dash/underscore)
+    if [[ ! "$ORG_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "Invalid organization name. Use only letters, numbers, dashes and underscores."
+        exit 1
+    fi
+    
+    ORG_DIR="${WORKSTATION_DIR}/orgs/${ORG_NAME}"
+    
+    if [[ -d "$ORG_DIR" ]]; then
+        log_warn "Organization '$ORG_NAME' already exists locally"
+        read -p "Continue with existing org? [Y/n]: " continue_existing
+        if [[ "$continue_existing" =~ ^[Nn]$ ]]; then
+            exit 0
+        fi
+    else
+        mkdir -p "$ORG_DIR"
+    fi
+    
+    # Save org config
+    cat > "$ORG_DIR/config" <<EOF
+ORG_NAME=$ORG_NAME
+GITHUB_OWNER=$GH_USER
+CREATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+WORKSTATION_VERSION=$VERSION
+EOF
+
+    log_success "Organization '$ORG_NAME' configured"
+    
+    echo ""
+    
+    # Step 3: Create SSOT Repository
+    log_info "Step 3: Creating SSOT Repository"
+    
+    SSOT_REPO_NAME="SSOT-${ORG_NAME}"
+    SSOT_LOCAL_PATH="${ORG_DIR}/${SSOT_REPO_NAME}"
+    
+    read -p "Create SSOT repository on GitHub? [Y/n]: " create_ssot
+    
+    if [[ ! "$create_ssot" =~ ^[Nn]$ ]]; then
+        # Create local SSOT structure
+        mkdir -p "$SSOT_LOCAL_PATH"
+        cd "$SSOT_LOCAL_PATH"
+        git init 2>/dev/null || true
+        
+        # Create structure
+        mkdir -p KBs Seats Projects
+        
+        # Create SSOT.md
+        cat > SSOT.md <<SSOT
+# SSOT: ${ORG_NAME}
+
+**Single Source of Truth for ${ORG_NAME}**
+
+## Structure
+
+\`\`\`
+.
+├── KBs/              # Knowledge Bases (submodules)
+├── Seats/            # Agent workspaces (submodules)
+└── Projects/         # Work streams (submodules)
+\`\`\`
+
+## Organization
+
+- **Name**: ${ORG_NAME}
+- **Owner**: ${GH_USER}
+- **Created**: $(date -u +"%Y-%m-%d")
+
+## Quick Commands
+
+\`\`\`bash
+# Create a new Seat
+workstation seat create Developer
+
+# Create a new Project  
+workstation project create api-v2
+
+# Add a Knowledge Base
+workstation kb add engineering
+\`\`\`
+
+---
+*Managed by Workstation v${VERSION}*
+SSOT
+
+        # Create directory READMEs
+        echo "# Knowledge Bases" > KBs/README.md
+        echo "# Seats" > Seats/README.md  
+        echo "# Projects" > Projects/README.md
+        
+        cat > .gitignore <<GITIGNORE
+.env
+.env.*
+!.env.example
+.DS_Store
+.vscode/
+*.swp
+!KBs/*/
+!Seats/*/
+!Projects/*/
+GITIGNORE
+
+        git add -A
+        git commit -m "Initial SSOT for ${ORG_NAME}"
+        
+        # Create GitHub repo
+        if gh repo create "${GH_USER}/${SSOT_REPO_NAME}" --public --source=. --push 2>/dev/null; then
+            log_success "SSOT repository created: https://github.com/${GH_USER}/${SSOT_REPO_NAME}"
+        else
+            log_warn "Could not create GitHub repo automatically"
+            log_info "Create it manually and run: git push -u origin main"
+        fi
+        
+        # Update org config with SSOT
+        echo "SSOT_REPO=${SSOT_REPO_NAME}" >> "$ORG_DIR/config"
+        echo "SSOT_PATH=${SSOT_LOCAL_PATH}" >> "$ORG_DIR/config"
+    fi
+    
+    echo ""
+    
+    # Step 4: Create KB-Core
+    log_info "Step 4: Creating KB-Core"
+    
+    KB_CORE_REPO="kb-core"
+    KB_CORE_PATH="${ORG_DIR}/${KB_CORE_REPO}"
+    
+    if [[ ! -d "$KB_CORE_PATH" ]]; then
+        mkdir -p "$KB_CORE_PATH"
+        cd "$KB_CORE_PATH"
+        git init 2>/dev/null || true
+        
+        cat > README.md <<KB
+# KB-Core v1.0.0
+
+**Core Semantic Foundation for ${ORG_NAME}**
+
+## Entity Definitions
+
+### Organization
+- **Name**: Organization identifier
+- **SSOT**: Root repository
+
+### Seat
+Agent workspace:
+- Repository: Seat-\$Name-${ORG_NAME}
+- Contains: .openclaw/workspace/
+
+### Project
+Work stream:
+- Repository: Project-\$Name-${ORG_NAME}
+
+## Naming Conventions
+
+- **Seats**: Seat-PascalCase-${ORG_NAME}
+- **Projects**: Project-PascalCase-${ORG_NAME}
+
+## Versioning
+
+- **MAJOR**: Breaking change
+- **MINOR**: Additive extension
+- **PATCH**: Clarification
+KB
+
+        cat > .gitignore <<GITIGNORE
+.env
+.DS_Store
+.vscode/
+*.swp
+GITIGNORE
+
+        git add -A
+        git commit -m "Initial KB-Core v1.0.0"
+        
+        # Try to create GitHub repo
+        if gh repo create "${GH_USER}/${KB_CORE_REPO}" --public --source=. --push 2>/dev/null; then
+            log_success "KB-Core repository created"
+        else
+            log_warn "Could not create KB-Core repo automatically"
+        fi
+        
+        # Add as submodule to SSOT
+        if [[ -d "$SSOT_LOCAL_PATH" ]]; then
+            cd "$SSOT_LOCAL_PATH"
+            git submodule add "../../${KB_CORE_REPO}" KBs/KB-Core 2>/dev/null || true
+            git commit -m "Add KB-Core submodule" 2>/dev/null || true
+        fi
+        
+        echo "KB_CORE_REPO=${KB_CORE_REPO}" >> "$ORG_DIR/config"
+        echo "KB_CORE_PATH=${KB_CORE_PATH}" >> "$ORG_DIR/config"
+    fi
+    
+    echo ""
+    
+    # Step 5: Create First Seat (optional)
+    log_info "Step 5: First Seat (Optional)"
+    
+    read -p "Create your first Seat now? [y/N]: " create_seat
+    
+    if [[ "$create_seat" =~ ^[Yy]$ ]]; then
+        read -p "Seat name (e.g., Admin, Developer): " SEAT_NAME
+        
+        if [[ -n "$SEAT_NAME" ]]; then
+            cmd_seat_create "$SEAT_NAME" "$ORG_NAME"
+        fi
+    fi
+    
+    echo ""
+    log_header "========================================"
+    log_success "Workstation onboarding complete!"
+    log_header "========================================"
+    echo ""
+    echo "Organization: $ORG_NAME"
+    echo "SSOT: ${SSOT_REPO_NAME}"
+    echo ""
+    echo "Next steps:"
+    echo "  workstation org use $ORG_NAME    # Switch to org"
+    echo "  workstation seat create          # Create more seats"
+    echo "  workstation project create       # Create projects"
+    echo ""
+}
+
+# ============================================================================
+# ORG COMMANDS
+# ============================================================================
+
+cmd_org_list() {
+    log_header "Organizations"
+    echo ""
+    
+    if [[ ! -d "${WORKSTATION_DIR}/orgs" ]]; then
+        log_warn "No organizations found"
+        echo "Run: workstation onboard"
+        return
+    fi
+    
+    for org_config in "${WORKSTATION_DIR}/orgs"/*/config; do
+        if [[ -f "$org_config" ]]; then
+            source "$org_config"
+            echo "  • $ORG_NAME (owner: $GITHUB_OWNER)"
+        fi
+    done
+    
+    echo ""
+}
+
+cmd_org_use() {
+    local org_name="${1:-}"
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "Organization name required"
+        echo "Usage: workstation org use <org-name>"
+        exit 1
+    fi
+    
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    
+    if [[ ! -d "$org_dir" ]]; then
+        log_error "Organization '$org_name' not found"
+        echo "Run: workstation onboard"
+        exit 1
+    fi
+    
+    # Save current org to global config
+    echo "CURRENT_ORG=$org_name" > "$CONFIG_FILE"
+    log_success "Switched to organization: $org_name"
+    
+    # Show org info
+    source "$org_dir/config"
+    echo ""
+    echo "  SSOT: $SSOT_REPO"
+    echo "  Path: $SSOT_PATH"
+    echo ""
+}
+
+cmd_org_info() {
+    local org_name="${1:-${CURRENT_ORG:-}}"
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "No organization specified"
+        echo "Usage: workstation org info <org-name>"
+        echo "   or: workstation org use <org-name>"
+        exit 1
+    fi
+    
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    
+    if [[ ! -f "$org_dir/config" ]]; then
+        log_error "Organization '$org_name' not found"
+        exit 1
+    fi
+    
+    source "$org_dir/config"
+    
+    log_header "Organization: $ORG_NAME"
+    echo ""
+    echo "  Owner: $GITHUB_OWNER"
+    echo "  SSOT: $SSOT_REPO"
+    echo "  Path: $SSOT_PATH"
+    echo "  KB-Core: $KB_CORE_REPO"
+    echo "  Created: $CREATED_AT"
+    echo ""
+}
+
+# ============================================================================
+# SEAT COMMANDS
+# ============================================================================
+
+cmd_seat_create() {
+    local seat_name="${1:-}"
+    local org_name="${2:-${CURRENT_ORG:-}}"
+    
+    if [[ -z "$seat_name" ]]; then
+        read -p "Seat name (e.g., Developer): " seat_name
+    fi
+    
+    if [[ -z "$seat_name" ]]; then
+        log_error "Seat name is required"
+        exit 1
+    fi
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "Organization not specified"
+        echo "Usage: workstation seat create <name> --org <org>"
+        echo "   or: workstation org use <org>"
+        exit 1
+    fi
+    
+    # Load org config
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    source "$org_dir/config"
+    
+    # Convert to PascalCase for repo name
+    local seat_pascal=$(echo "$seat_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
+    local repo_name="Seat-${seat_pascal}-${ORG_NAME}"
+    local repo_path="${org_dir}/${repo_name}"
+    
+    log_info "Creating Seat: $seat_name"
+    log_info "Repository: $repo_name"
+    
+    if [[ -d "$repo_path" ]]; then
+        log_error "Seat '$repo_name' already exists"
+        exit 1
+    fi
+    
+    # Create repository
+    mkdir -p "$repo_path"
+    cd "$repo_path"
+    git init 2>/dev/null || true
+    
+    # Create .openclaw/workspace structure
+    mkdir -p .openclaw/workspace
+    
+    # AGENT.md
+    cat > .openclaw/workspace/AGENT.md <<EOF
+# $seat_name
+
+**Organization**: ${ORG_NAME}
+**Role**: Agent role description
+**Created**: $(date -u +"%Y-%m-%d")
+
+## Purpose
+
+What this agent does in ${ORG_NAME}.
+
+## Boundaries
+
+- **Can**: Allowed actions
+- **Cannot**: Prohibited actions
+- **Needs Approval**: Actions requiring approval
+
+## Tools
+
+Available tools and capabilities.
+
+## Related
+
+- **SSOT**: ${SSOT_REPO}
+- **KBs**: KB-Core
+EOF
+
+    # MEMORY.md
+    cat > .openclaw/workspace/MEMORY.md <<EOF
+# Memory: $seat_name (${ORG_NAME})
+
+## Preferences
+
+Work preferences and style.
+
+## Active Context
+
+Current focus and blockers.
+
+## Learned
+
+Key insights and lessons.
+EOF
+
+    # TOOLS.md
+    cat > .openclaw/workspace/TOOLS.md <<EOF
+# Tools: $seat_name (${ORG_NAME})
+
+## Available Tools
+
+Configured tools for this seat.
+
+## Credentials
+
+References to credentials (never commit secrets).
+EOF
+
+    # Main README
+    cat > README.md <<EOF
+# Seat: $seat_name
+
+Organization: **${ORG_NAME}**
+
+Agent workspace for $seat_name.
+
+## Structure
+
+\`\`\`
+.openclaw/workspace/
+├── AGENT.md      # Identity and purpose
+├── MEMORY.md     # Long-term memory
+└── TOOLS.md      # Tool configuration
+\`\`\`
+
+## Repository
+
+- **Name**: $repo_name
+- **Organization**: ${ORG_NAME}
+- **Created**: $(date -u +"%Y-%m-%d")
+EOF
+
+    # .gitignore
+    cat > .gitignore <<'GITIGNORE'
+# Environment - NEVER COMMIT SECRETS
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temp
+.tmp/
+temp/
+.cache/
+*.tmp
+GITIGNORE
+
+    git add -A
+    git commit -m "Initial Seat: $seat_name for ${ORG_NAME}"
+    
+    # Create GitHub repo
+    if gh repo create "${GITHUB_OWNER}/${repo_name}" --public --source=. --push 2>/dev/null; then
+        log_success "Seat repository created: https://github.com/${GITHUB_OWNER}/${repo_name}"
+    else
+        log_warn "Could not create GitHub repo automatically"
+    fi
+    
+    # Add as submodule to SSOT
+    cd "${SSOT_PATH}"
+    git submodule add "../../${repo_name}" "Seats/${seat_pascal}" 2>/dev/null || true
+    git commit -m "Add Seat: $seat_name" 2>/dev/null || true
+    
+    log_success "Seat '$seat_name' created and linked to SSOT"
+    echo ""
+    echo "  Local: $repo_path"
+    echo "  SSOT: ${SSOT_PATH}/Seats/${seat_pascal}"
+    echo ""
+}
+
+cmd_seat_list() {
+    local org_name="${1:-${CURRENT_ORG:-}}"
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "Organization not specified"
+        exit 1
+    fi
+    
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    source "$org_dir/config"
+    
+    log_header "Seats in $org_name"
+    echo ""
+    
+    local seats_dir="${SSOT_PATH}/Seats"
+    if [[ -d "$seats_dir" ]]; then
+        for seat in "$seats_dir"/*; do
+            if [[ -d "$seat" ]]; then
+                echo "  • $(basename "$seat")"
+            fi
+        done
+    else
+        echo "  No seats found"
+    fi
+    
+    echo ""
+}
+
+# ============================================================================
+# PROJECT COMMANDS
+# ============================================================================
+
+cmd_project_create() {
+    local project_name="${1:-}"
+    local org_name="${2:-${CURRENT_ORG:-}}"
+    
+    if [[ -z "$project_name" ]]; then
+        read -p "Project name (e.g., api-v2): " project_name
+    fi
+    
+    if [[ -z "$project_name" ]]; then
+        log_error "Project name is required"
+        exit 1
+    fi
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "Organization not specified"
+        exit 1
+    fi
+    
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    source "$org_dir/config"
+    
+    local project_pascal=$(echo "$project_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
+    local repo_name="Project-${project_pascal}-${ORG_NAME}"
+    local repo_path="${org_dir}/${repo_name}"
+    
+    log_info "Creating Project: $project_name"
+    
+    mkdir -p "$repo_path"
+    cd "$repo_path"
+    git init 2>/dev/null || true
+    
+    cat > README.md <<EOF
+# Project: $project_name
+
+**Organization**: ${ORG_NAME}
+**Status**: Planning
+**Created**: $(date -u +"%Y-%m-%d")
+
+## Objective
+
+What this project achieves.
+
+## Scope
+
+**In Scope**:
+- Item 1
+- Item 2
+
+**Out of Scope**:
+- Item 1
+
+## Related
+
+- **Seats**: Link relevant seats
+- **KBs**: Link knowledge bases
+
+## Deliverables
+
+- [ ] Deliverable 1
+- [ ] Deliverable 2
+EOF
+
+    cat > .gitignore <<'GITIGNORE'
+.env
+.env.*
+!.env.example
+*.tmp
+.tmp/
+temp/
+cache/
+.DS_Store
+.vscode/
+*.swp
+GITIGNORE
+
+    mkdir -p docs
+    echo "# Documentation: $project_name" > docs/README.md
+    
+    git add -A
+    git commit -m "Initial Project: $project_name for ${ORG_NAME}"
+    
+    # Create GitHub repo
+    if gh repo create "${GITHUB_OWNER}/${repo_name}" --public --source=. --push 2>/dev/null; then
+        log_success "Project repository created"
+    else
+        log_warn "Could not create GitHub repo automatically"
+    fi
+    
+    # Add to SSOT
+    cd "${SSOT_PATH}"
+    git submodule add "../../${repo_name}" "Projects/${project_pascal}" 2>/dev/null || true
+    git commit -m "Add Project: $project_name" 2>/dev/null || true
+    
+    log_success "Project '$project_name' created"
+}
+
+cmd_project_list() {
+    local org_name="${1:-${CURRENT_ORG:-}}"
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "Organization not specified"
+        exit 1
+    fi
+    
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    source "$org_dir/config"
+    
+    log_header "Projects in $org_name"
+    echo ""
+    
+    local projects_dir="${SSOT_PATH}/Projects"
+    if [[ -d "$projects_dir" ]]; then
+        for project in "$projects_dir"/*; do
+            if [[ -d "$project" ]]; then
+                echo "  • $(basename "$project")"
+            fi
+        done
+    else
+        echo "  No projects found"
+    fi
+    
+    echo ""
+}
+
+# ============================================================================
+# KB COMMANDS
+# ============================================================================
+
+cmd_kb_add() {
+    local kb_name="${1:-}"
+    local org_name="${2:-${CURRENT_ORG:-}}"
+    
+    if [[ -z "$kb_name" ]]; then
+        read -p "KB name (e.g., engineering): " kb_name
+    fi
+    
+    if [[ -z "$org_name" ]]; then
+        log_error "Organization not specified"
+        exit 1
+    fi
+    
+    local org_dir="${WORKSTATION_DIR}/orgs/${org_name}"
+    source "$org_dir/config"
+    
+    local kb_pascal=$(echo "$kb_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
+    local repo_name="KB-${kb_pascal}"
+    
+    log_info "Creating KB: $kb_name"
+    
+    local repo_path="${org_dir}/${repo_name}"
+    mkdir -p "$repo_path"
+    cd "$repo_path"
+    git init 2>/dev/null || true
+    
+    cat > README.md <<EOF
+# KB-${kb_pascal}
+
+**Knowledge Base for ${ORG_NAME}**
+
+Domain-specific knowledge.
+
+## Contents
+
+- Standards
+- Templates
+- Best practices
+EOF
+
+    cat > .gitignore <<'GITIGNORE'
+.env
+.DS_Store
+.vscode/
+*.swp
+GITIGNORE
+
+    git add -A
+    git commit -m "Initial KB-${kb_pascal}"
+    
+    # Create GitHub repo
+    if gh repo create "${GITHUB_OWNER}/${repo_name}" --public --source=. --push 2>/dev/null; then
+        log_success "KB repository created"
+    else
+        log_warn "Could not create GitHub repo automatically"
+    fi
+    
+    # Add to SSOT
+    cd "${SSOT_PATH}"
+    git submodule add "../../${repo_name}" "KBs/${kb_pascal}" 2>/dev/null || true
+    git commit -m "Add KB: $kb_name" 2>/dev/null || true
+    
+    log_success "KB '$kb_name' added"
+}
+
+# ============================================================================
+# STATUS COMMAND
+# ============================================================================
+
+cmd_status() {
+    log_header "Workstation Status"
+    echo ""
+    
+    echo "Version: $VERSION"
+    echo "Config: $WORKSTATION_DIR"
+    echo ""
+    
+    # Check GitHub auth
+    if check_gh_auth; then
+        local gh_user=$(get_gh_user)
+        log_success "GitHub: Authenticated as $gh_user"
+    else
+        log_warn "GitHub: Not authenticated"
+    fi
+    
+    echo ""
+    
+    # Current org
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+        log_info "Current Org: ${CURRENT_ORG:-none}"
+    else
+        log_info "Current Org: none"
+    fi
+    
+    echo ""
+    
+    # List orgs
+    log_info "Organizations:"
+    if [[ -d "${WORKSTATION_DIR}/orgs" ]]; then
+        for org in "${WORKSTATION_DIR}/orgs"/*; do
+            if [[ -d "$org" ]]; then
+                local org_name=$(basename "$org")
+                if [[ "${CURRENT_ORG:-}" == "$org_name" ]]; then
+                    echo "  → $org_name (active)"
+                else
+                    echo "  • $org_name"
+                fi
+            fi
+        done
+    else
+        echo "  None"
+    fi
+    
+    echo ""
+}
+
+# ============================================================================
+# HELP
+# ============================================================================
+
+show_help() {
+    cat <<HELP
+Workstation - Agent-Ready Organizational Workspaces
+Version: $VERSION
+
+USAGE:
+    workstation [command] [options]
+
+COMMANDS:
+    onboard                     Interactive setup for new users
+    
+    org                         Organization management
+        org list                List all organizations
+        org use <name>          Switch to organization
+        org info [name]         Show organization details
+    
+    seat                        Seat (agent workspace) management
+        seat create [name]      Create a new seat
+        seat list               List all seats
+    
+    project                     Project management
+        project create [name]   Create a new project
+        project list            List all projects
+    
+    kb                          Knowledge base management
+        kb add [name]           Add a knowledge base
+    
+    status                      Show workstation status
+    
+    help                        Show this help message
+
+EXAMPLES:
+    # Initial setup
+    workstation onboard
+    
+    # Create resources
+    workstation seat create Developer
+    workstation project create api-v2
+    
+    # Switch organizations
+    workstation org use AcmeCorp
+
+CONFIGURATION:
+    Config directory: ~/.workstation/
+    Organizations:    ~/.workstation/orgs/
+
+HELP
+}
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+main() {
+    local command="${1:-help}"
+    
+    # Load current org if exists
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+    fi
+    
+    case "$command" in
+        onboard)
+            cmd_onboard
+            ;;
+        org)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                list) cmd_org_list ;;
+                use) cmd_org_use "$1" ;;
+                info) cmd_org_info "$1" ;;
+                *) log_error "Unknown org command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        seat)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                create) cmd_seat_create "$1" ;;
+                list) cmd_seat_list "$1" ;;
+                *) log_error "Unknown seat command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        project)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                create) cmd_project_create "$1" ;;
+                list) cmd_project_list "$1" ;;
+                *) log_error "Unknown project command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        kb)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                add) cmd_kb_add "$1" ;;
+                *) log_error "Unknown kb command: $subcmd"; show_help; exit 1 ;;
+            esac
+            ;;
+        status)
+            cmd_status
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

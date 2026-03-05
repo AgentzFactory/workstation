@@ -1,134 +1,128 @@
 # Workstation 🏗️
 
-**Agent-Ready Organizational Workspaces**
+**Agent-Ready Organizational Workspaces for Enterprises**
 
-Workstation crea SSOTs modulares donde todo es un submódulo git: KBs, Seats y Projects.
+[![CI](https://github.com/AgentzFactory/workstation/actions/workflows/ci.yml/badge.svg)](https://github.com/AgentzFactory/workstation/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
 
-## 🎯 Concepto
+Workstation is a CLI tool that creates modular, secure Single Sources of Truth (SSOT) where humans and AI agents collaborate across organizations with clear boundaries and reusable knowledge.
 
-Todo es modular:
+## 🎯 What Makes Workstation Different
 
-```
-workstation/              ← Herramienta (tú estás aquí)
-    └── install.sh
-    
-SSOT-$ORG/                ← Tu SSOT (creado por install.sh)
-    ├── KBs/
-    │   └── KB-Core/      ← submódulo
-    ├── Seats/
-    │   └── Seat-Dev-$ORG/   ← submódulo
-    └── Projects/
-        └── Project-Api-$ORG/  ← submódulo
+Unlike other tools, Workstation is designed for **enterprise organizational structures**:
 
-kb-core/                  ← KB compartida
-Seat-Dev-$ORG/            ← Seat independiente  
-Project-Api-$ORG/         ← Project independiente
-```
+- **Hierarchical Access**: Admins manage the SSOT, employees only access their Seats
+- **Agent-First Design**: Each Seat is a complete agent workspace with `.openclaw/workspace/`
+- **Modular by Default**: Everything is a git submodule—KBs, Seats, Projects
+- **Enterprise Ready**: Onboarding flows, GitHub integration, org management
 
 ## 🚀 Quick Start
 
-```bash
-# 1. Clona la herramienta
-git clone https://github.com/yourorg/workstation.git
-cd workstation
-
-# 2. Configura
-echo "ORG_NAME=Acme" > .env
-echo "GITHUB_OWNER=acmeorg" >> .env
-
-# 3. Instala (crea SSOT y kb-core)
-bash install.sh
-
-# 4. Crea un Seat
-bash scripts/create-seat.sh Developer
-# Crea: ../Seat-Developer-Acme/
-
-# 5. Agrégalo al SSOT
-cd ../SSOT-Acme
-git submodule add ../Seat-Developer-Acme Seats/Developer
-
-# 6. Crea un Project
-bash ../workstation/scripts/create-project.sh api-v2
-# Crea: ../Project-ApiV2-Acme/
-
-# 7. Agrégalo al SSOT
-git submodule add ../Project-ApiV2-Acme Projects/ApiV2
-```
-
-## 📁 Naming Convention
-
-| Tipo | Formato | Ejemplo |
-|------|---------|---------|
-| SSOT | `SSOT-$ORG` | `SSOT-Acme` |
-| Seat | `Seat-$Name-$ORG` | `Seat-Developer-Acme` |
-| Project | `Project-$Name-$ORG` | `Project-ApiV2-Acme` |
-| KB | `KB-$Name` | `KB-Core`, `KB-Engineering` |
-
-## 📁 Estructura de un Seat
-
-```
-Seat-Developer-Acme/      ← Repo git independiente
-├── .openclaw/
-│   └── workspace/
-│       ├── AGENT.md      # Identidad
-│       ├── MEMORY.md     # Memoria
-│       └── TOOLS.md      # Herramientas
-├── .gitignore            # Ignora .env
-└── README.md
-```
-
-## 📁 Estructura de un Project
-
-```
-Project-ApiV2-Acme/       ← Repo git independiente
-├── docs/
-│   └── README.md
-├── .gitignore
-└── README.md             # Objetivos, scope, deliverables
-```
-
-## 🔧 Scripts
-
-| Script | Uso | Crea |
-|--------|-----|------|
-| `install.sh` | Setup inicial | `SSOT-$ORG/`, `kb-core/` |
-| `create-seat.sh` | Nuevo agente | `Seat-$Name-$ORG/` |
-| `create-project.sh` | Nuevo proyecto | `Project-$Name-$ORG/` |
-
-## 🔄 Flujo de Trabajo
+### Install
 
 ```bash
-# Setup
-cd workstation
-bash install.sh  # Crea ../SSOT-MiOrg/
-
-# Crear Seat
-bash scripts/create-seat.sh Analyst
-# → Crea ../Seat-Analyst-MiOrg/
-
-# Integrar
-cd ../SSOT-MiOrg
-git submodule add ../Seat-Analyst-MiOrg Seats/Analyst
-
-# Crear Project  
-bash ../workstation/scripts/create-project.sh dashboard
-# → Crea ../Project-Dashboard-MiOrg/
-
-git submodule add ../Project-Dashboard-MiOrg Projects/Dashboard
-git commit -m "Add Analyst seat and Dashboard project"
+curl -fsSL https://raw.githubusercontent.com/AgentzFactory/workstation/main/install-cli.sh | bash
 ```
 
-## 📖 Docs
+Or manually:
+```bash
+git clone https://github.com/AgentzFactory/workstation.git
+cd workstation
+bash install-cli.sh
+```
 
-- [Getting Started](docs/getting-started.md) — Guía completa
-- [Architecture](docs/architecture.md) — Diseño detallado
-- [Best Practices](docs/best-practices.md) — Consejos
+### Onboard
+
+```bash
+workstation onboard
+```
+
+This interactive wizard will:
+1. ✅ Authenticate with GitHub
+2. ✅ Create your organization
+3. ✅ Set up the SSOT repository
+4. ✅ Create KB-Core (semantic foundation)
+5. ✅ Optionally create your first Seat
+
+### Daily Usage
+
+```bash
+# Switch to your org
+workstation org use AcmeCorp
+
+# Create a new agent Seat
+workstation seat create Developer
+
+# Create a project
+workstation project create api-v2
+
+# Check status
+workstation status
+```
+
+## 📖 Documentation
+
+- [Architecture](docs/architecture.md) — Design philosophy
+- [Getting Started](docs/getting-started.md) — Complete guide
+- [Enterprise Setup](docs/enterprise.md) — Multi-org, governance
+- [CLI Reference](docs/cli.md) — All commands
+
+## 🏛️ Architecture
+
+```
+~/.workstation/
+├── config                    # Current org
+└── orgs/
+    └── AcmeCorp/
+        ├── config            # Org settings
+        ├── SSOT-AcmeCorp/    # SSOT (hub)
+        │   ├── KBs/
+        │   ├── Seats/        # Submodules
+        │   └── Projects/     # Submodules
+        ├── kb-core/
+        ├── Seat-Developer-AcmeCorp/
+        └── Project-ApiV2-AcmeCorp/
+```
+
+## 👥 User Roles
+
+### Admin (Has SSOT Access)
+```bash
+workstation onboard                    # Create org
+workstation seat create Developer      # Create seats
+workstation project create api-v2      # Create projects
+workstation kb add engineering         # Add knowledge bases
+```
+
+### Employee (Seat-only Access)
+Employees typically:
+1. Get invited to a Seat repository
+2. Clone their Seat: `git clone https://github.com/org/Seat-Developer-AcmeCorp.git`
+3. Work in `.openclaw/workspace/`
+4. Push changes to their Seat
+
+They **don't need** the SSOT or workstation CLI—they just need git.
+
+## 🔧 CLI Commands
+
+```
+workstation onboard              # Interactive setup
+workstation org list             # List organizations
+workstation org use AcmeCorp     # Switch org
+workstation seat create          # Create agent workspace
+workstation seat list            # List seats
+workstation project create       # Create project
+workstation project list         # List projects
+workstation kb add               # Add knowledge base
+workstation status               # Show status
+```
 
 ## 🎓 Examples
 
-- [minimal-team](examples/minimal-team/) — Equipo pequeño
-- [startup](examples/startup/) — Startup creciente  
-- [enterprise](examples/enterprise/) — Gran organización
+- [Minimal Team](examples/minimal-team/) — 2-3 people
+- [Startup](examples/startup/) — Growing team
+- [Enterprise](examples/enterprise/) — Multi-department
 
 ## 🤝 Contributing
 
@@ -137,3 +131,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## 📜 License
 
 MIT — [LICENSE](LICENSE).
+
+---
+
+**Workstation** — Structure for the agent era.
