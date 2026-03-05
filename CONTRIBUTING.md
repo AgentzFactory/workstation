@@ -1,92 +1,173 @@
 # Contributing to Workstation
 
-Thank you for your interest in contributing to Workstation! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing! This document explains how to contribute effectively.
 
-## Code of Conduct
+## 🔄 Development Workflow (Trunk-Based)
 
-This project and everyone participating in it is governed by our commitment to respectful collaboration. Be kind, be constructive, be professional.
+We use **trunk-based development** with a focus on cost efficiency:
 
-## How Can I Contribute?
+- **`main`** (also called `trunk`): The stable branch
+- **Short-lived feature branches**: `feat/*`, `fix/*`, `docs/*`
+- **No long-running branches**: Everything merges to trunk quickly
 
-### Reporting Bugs
+## 🍴 Fork-Based Contributions (Cost Efficient)
 
-- Check if the bug has already been reported
-- Open an issue with a clear title and description
-- Include steps to reproduce, expected vs actual behavior
-- Add environment details (OS, git version, shell)
+To optimize costs for the organization, **external contributors must use forks**:
 
-### Suggesting Enhancements
+### For External Contributors (Fork Workflow)
 
-- Open an issue with the `enhancement` label
-- Describe the use case and expected behavior
-- Discuss implementation approach if you have ideas
+1. **Fork** the repository to your personal GitHub account
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/workstation.git
+   cd workstation
+   ```
+3. **Add upstream remote**:
+   ```bash
+   git remote add upstream https://github.com/AgentzFactory/workstation.git
+   ```
+4. **Create a feature branch**:
+   ```bash
+   git checkout -b feat/your-feature-name
+   ```
+5. **Make changes** and commit
+6. **Push to your fork**:
+   ```bash
+   git push origin feat/your-feature-name
+   ```
+7. **Open a Pull Request** from your fork to `AgentzFactory/workstation:main`
 
-### Pull Requests
+### For Maintainers (Direct Workflow)
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Test your changes
-5. Commit with clear messages (`git commit -m 'Add amazing feature'`)
-6. Push to your fork (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Documentation
-
-Documentation improvements are always welcome:
-- Fix typos or unclear explanations
-- Add examples
-- Translate to other languages
-- Improve diagrams or visuals
-
-## Development Setup
+Maintainers with write access can create branches directly:
 
 ```bash
-git clone https://github.com/yourorg/workstation.git
-cd workstation
-# No dependencies needed - Workstation is shell-based
+# Create feature branch
+git checkout -b feat/new-feature
+
+# Work, commit, push
+git push origin feat/new-feature
+
+# Open PR to main
 ```
 
-## Project Structure
+## 🌿 Branch Naming Conventions
 
-```
-.
-├── blueprint/          # Template files for new SSOT workspaces
-├── docs/              # Extended documentation
-├── scripts/           # Utility scripts
-├── tests/             # Test suites
-├── README.md          # Main documentation
-└── CHANGELOG.md       # Version history
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `feat/` | New feature | `feat/cli-onboard` |
+| `feature/` | Alternative for features | `feature/seat-templates` |
+| `fix/` | Bug fix | `fix/submodule-path` |
+| `hotfix/` | Urgent fix | `hotfix/security-patch` |
+| `docs/` | Documentation | `docs/architecture-update` |
+
+## ✅ Before Submitting a PR
+
+1. **Run tests locally**:
+   ```bash
+   bash tests/test-workstation.sh
+   ```
+
+2. **Check shell script syntax**:
+   ```bash
+   bash -n bin/workstation
+   bash -n install-cli.sh
+   ```
+
+3. **Update documentation** if needed:
+   - README.md for user-facing changes
+   - docs/*.md for detailed documentation
+   - This file for contribution process changes
+
+4. **Write a clear PR description**:
+   - What changed?
+   - Why?
+   - Testing done?
+
+## 🧪 Testing Guidelines
+
+### Unit Tests
+- Add tests to `tests/test-workstation.sh`
+- Tests should be independent and idempotent
+- Use descriptive test names
+
+### Integration Tests
+- Test the full workflow when possible
+- Use temporary directories (`/tmp/workstation-test-*`)
+- Clean up after tests
+
+### Manual Testing
+For changes to the CLI:
+```bash
+# Install locally
+bash install-cli.sh
+
+# Test commands
+workstation help
+workstation status
 ```
 
-## Style Guidelines
+## 📝 Code Style
 
 ### Shell Scripts
-
 - Use `#!/usr/bin/env bash`
-- Quote all variables: `"${var}"`
 - Use `set -euo pipefail` for safety
+- Quote all variables: `"${var}"`
+- Use meaningful function names
 - Add comments for complex logic
-- Follow [Google Shell Style Guide](https://google.github.io/styleguide/shellguide.html)
 
 ### Documentation
-
 - Use clear, concise language
-- Include examples for every feature
+- Include examples
 - Keep line length under 100 characters
-- Use code blocks with language tags
 
-## Testing
+## 🔒 Security
 
-Before submitting:
-- Test scripts on clean environments
-- Verify template generation works
-- Check git operations complete successfully
-- Validate documentation renders correctly
+- **Never commit secrets** (tokens, passwords)
+- Use `.gitignore` for sensitive files
+- Report security issues privately to maintainers
 
-## Questions?
+## 📋 PR Review Process
 
-- Open a [Discussion](https://github.com/yourorg/workstation/discussions)
-- Join our community chat (coming soon)
+1. **Automated checks** run on your PR:
+   - Shell script validation
+   - Tests
+   - Security scan
+   - Trunk-ready check
 
-Thank you for contributing! 🚀
+2. **For fork PRs**: Integration tests are skipped (forks don't have repo permissions). A maintainer will verify integration manually.
+
+3. **Maintainer review**: At least one approval required
+
+4. **Merge to trunk**: Squash and merge to `main`
+
+## 🎯 What to Contribute
+
+### Good First Issues
+- Documentation improvements
+- Bug fixes
+- Test coverage
+- Example scenarios
+
+### Feature Requests
+Open an issue first to discuss:
+- New commands
+- Architecture changes
+- Breaking changes
+
+### Current Priorities
+See [Roadmap](../README.md#roadmap) for current focus areas.
+
+## 🆘 Getting Help
+
+- **Discussions**: Use GitHub Discussions for questions
+- **Issues**: Report bugs via GitHub Issues
+- **Discord**: [Join our community](https://discord.gg/clawd) (if available)
+
+## 📜 License
+
+By contributing, you agree that your contributions will be licensed under the [MIT License](../LICENSE).
+
+---
+
+Thank you for helping make Workstation better! 🎉

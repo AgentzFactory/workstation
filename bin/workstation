@@ -340,28 +340,28 @@ cmd_central_list() {
 }
 
 cmd_central_use() {
-    local org_name="${1:-}"
+    local central_name="${1:-}"
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "Organization name required"
         echo "Usage: workstation central use <org-name>"
         exit 1
     fi
     
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
     
-    if [[ ! -d "$org_dir" ]]; then
-        log_error "Organization '$org_name' not found"
+    if [[ ! -d "$central_dir" ]]; then
+        log_error "Organization '$central_name' not found"
         echo "Run: workstation onboard"
         exit 1
     fi
     
     # Save current org to global config
-    echo "CURRENT_CENTRAL=$org_name" > "$CONFIG_FILE"
-    log_success "Switched to organization: $org_name"
+    echo "CURRENT_CENTRAL=$central_name" > "$CONFIG_FILE"
+    log_success "Switched to organization: $central_name"
     
     # Show central info
-    source "$org_dir/config"
+    source "$central_dir/config"
     echo ""
     echo "  SSOT: $SSOT_REPO"
     echo "  Path: $SSOT_PATH"
@@ -369,23 +369,23 @@ cmd_central_use() {
 }
 
 cmd_central_info() {
-    local org_name="${1:-${CURRENT_CENTRAL:-}}"
+    local central_name="${1:-${CURRENT_CENTRAL:-}}"
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "No organization specified"
         echo "Usage: workstation central info <org-name>"
         echo "   or: workstation central use <org-name>"
         exit 1
     fi
     
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
     
-    if [[ ! -f "$org_dir/config" ]]; then
-        log_error "Organization '$org_name' not found"
+    if [[ ! -f "$central_dir/config" ]]; then
+        log_error "Organization '$central_name' not found"
         exit 1
     fi
     
-    source "$org_dir/config"
+    source "$central_dir/config"
     
     log_header "Central: $ORG_NAME"
     echo ""
@@ -403,7 +403,7 @@ cmd_central_info() {
 
 cmd_seat_create() {
     local seat_name="${1:-}"
-    local org_name="${2:-${CURRENT_CENTRAL:-}}"
+    local central_name="${2:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$seat_name" ]]; then
         read -p "Seat name (e.g., Developer): " seat_name
@@ -414,7 +414,7 @@ cmd_seat_create() {
         exit 1
     fi
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "Central not specified"
         echo "Usage: workstation seat create <name> --org <org>"
         echo "   or: workstation central use <org>"
@@ -422,13 +422,13 @@ cmd_seat_create() {
     fi
     
     # Load org config
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
-    source "$org_dir/config"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+    source "$central_dir/config"
     
     # Convert to PascalCase for repo name
     local seat_pascal=$(echo "$seat_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
     local repo_name="Seat-${seat_pascal}-${ORG_NAME}"
-    local repo_path="${org_dir}/${repo_name}"
+    local repo_path="${central_dir}/${repo_name}"
     
     log_info "Creating Seat: $seat_name"
     log_info "Repository: $repo_name"
@@ -568,11 +568,18 @@ GITIGNORE
     fi
     
     # Add as submodule to SSOT
+    log_info "Adding Seat to Central (SSOT)..."
     cd "${SSOT_PATH}"
-    git submodule add "../../${repo_name}" "Seats/${seat_pascal}" 2>/dev/null || true
-    git commit -m "Add Seat: $seat_name" 2>/dev/null || true
     
-    log_success "Seat '$seat_name' created and linked to SSOT"
+    # Use absolute path for submodule to avoid relative path issues
+    local seat_absolute_path="${central_dir}/${repo_name}"
+    if git submodule add "${seat_absolute_path}" "Seats/${seat_pascal}" 2>&1; then
+        git commit -m "Add Seat: $seat_name" || log_warn "Nothing to commit"
+        log_success "Seat linked to SSOT"
+    else
+        log_warn "Could not add submodule automatically (may already exist)"
+        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${seat_absolute_path} Seats/${seat_pascal}"
+    fi
     echo ""
     echo "  Local: $repo_path"
     echo "  SSOT: ${SSOT_PATH}/Seats/${seat_pascal}"
@@ -580,17 +587,17 @@ GITIGNORE
 }
 
 cmd_seat_list() {
-    local org_name="${1:-${CURRENT_CENTRAL:-}}"
+    local central_name="${1:-${CURRENT_CENTRAL:-}}"
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "Central not specified"
         exit 1
     fi
     
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
-    source "$org_dir/config"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+    source "$central_dir/config"
     
-    log_header "Seats in $org_name"
+    log_header "Seats in $central_name"
     echo ""
     
     local seats_dir="${SSOT_PATH}/Seats"
@@ -613,7 +620,7 @@ cmd_seat_list() {
 
 cmd_project_create() {
     local project_name="${1:-}"
-    local org_name="${2:-${CURRENT_CENTRAL:-}}"
+    local central_name="${2:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$project_name" ]]; then
         read -p "Project name (e.g., api-v2): " project_name
@@ -624,17 +631,17 @@ cmd_project_create() {
         exit 1
     fi
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "Central not specified"
         exit 1
     fi
     
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
-    source "$org_dir/config"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+    source "$central_dir/config"
     
     local project_pascal=$(echo "$project_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
     local repo_name="Project-${project_pascal}-${ORG_NAME}"
-    local repo_path="${org_dir}/${repo_name}"
+    local repo_path="${central_dir}/${repo_name}"
     
     log_info "Creating Project: $project_name"
     
@@ -700,25 +707,32 @@ GITIGNORE
     fi
     
     # Add to SSOT
+    log_info "Adding Project to Central (SSOT)..."
     cd "${SSOT_PATH}"
-    git submodule add "../../${repo_name}" "Projects/${project_pascal}" 2>/dev/null || true
-    git commit -m "Add Project: $project_name" 2>/dev/null || true
+    local project_absolute_path="${central_dir}/${repo_name}"
+    if git submodule add "${project_absolute_path}" "Projects/${project_pascal}" 2>&1; then
+        git commit -m "Add Project: $project_name" || log_warn "Nothing to commit"
+        log_success "Project linked to SSOT"
+    else
+        log_warn "Could not add submodule automatically"
+        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${project_absolute_path} Projects/${project_pascal}"
+    fi
     
     log_success "Project '$project_name' created"
 }
 
 cmd_project_list() {
-    local org_name="${1:-${CURRENT_CENTRAL:-}}"
+    local central_name="${1:-${CURRENT_CENTRAL:-}}"
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "Central not specified"
         exit 1
     fi
     
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
-    source "$org_dir/config"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+    source "$central_dir/config"
     
-    log_header "Projects in $org_name"
+    log_header "Projects in $central_name"
     echo ""
     
     local projects_dir="${SSOT_PATH}/Projects"
@@ -741,26 +755,26 @@ cmd_project_list() {
 
 cmd_kb_add() {
     local kb_name="${1:-}"
-    local org_name="${2:-${CURRENT_CENTRAL:-}}"
+    local central_name="${2:-${CURRENT_CENTRAL:-}}"
     
     if [[ -z "$kb_name" ]]; then
         read -p "KB name (e.g., engineering): " kb_name
     fi
     
-    if [[ -z "$org_name" ]]; then
+    if [[ -z "$central_name" ]]; then
         log_error "Central not specified"
         exit 1
     fi
     
-    local central_dir="${WORKSTATION_DIR}/centrals/${org_name}"
-    source "$org_dir/config"
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+    source "$central_dir/config"
     
     local kb_pascal=$(echo "$kb_name" | sed -E 's/(^|-)([a-z])/\u\2/g' | sed 's/-//g')
     local repo_name="KB-${kb_pascal}"
     
     log_info "Creating KB: $kb_name"
     
-    local repo_path="${org_dir}/${repo_name}"
+    local repo_path="${central_dir}/${repo_name}"
     mkdir -p "$repo_path"
     cd "$repo_path"
     git init 2>/dev/null || true
@@ -797,9 +811,16 @@ GITIGNORE
     fi
     
     # Add to SSOT
+    log_info "Adding KB to Central (SSOT)..."
     cd "${SSOT_PATH}"
-    git submodule add "../../${repo_name}" "KBs/${kb_pascal}" 2>/dev/null || true
-    git commit -m "Add KB: $kb_name" 2>/dev/null || true
+    local kb_absolute_path="${central_dir}/${repo_name}"
+    if git submodule add "${kb_absolute_path}" "KBs/${kb_pascal}" 2>&1; then
+        git commit -m "Add KB: $kb_name" || log_warn "Nothing to commit"
+        log_success "KB linked to SSOT"
+    else
+        log_warn "Could not add submodule automatically"
+        log_info "To link manually: cd ${SSOT_PATH} && git submodule add ${kb_absolute_path} KBs/${kb_pascal}"
+    fi
     
     log_success "KB '$kb_name' added"
 }
@@ -841,11 +862,11 @@ cmd_status() {
     if [[ -d "${WORKSTATION_DIR}/orgs" ]]; then
         for org in "${WORKSTATION_DIR}/orgs"/*; do
             if [[ -d "$org" ]]; then
-                local org_name=$(basename "$org")
-                if [[ "${CURRENT_CENTRAL:-}" == "$org_name" ]]; then
-                    echo "  → $org_name (active)"
+                local central_name=$(basename "$org")
+                if [[ "${CURRENT_CENTRAL:-}" == "$central_name" ]]; then
+                    echo "  → $central_name (active)"
                 else
-                    echo "  • $org_name"
+                    echo "  • $central_name"
                 fi
             fi
         done
@@ -871,10 +892,10 @@ USAGE:
 COMMANDS:
     onboard                     Interactive setup for new users
     
-    org                         Central management
-        central list                List all centrals
-        central use <name>          Switch to central
-        central info [name]         Show central details
+    central                     Central (SSOT) management
+        central list            List all centrals
+        central use <name>      Switch to central
+        central info [name]     Show central details
     
     seat                        Seat (agent workspace) management
         seat create [name]      Create a new seat
@@ -899,12 +920,22 @@ EXAMPLES:
     workstation seat create Developer
     workstation project create api-v2
     
-    # Switch organizations
+    # Switch centrals
     workstation central use AcmeCorp
+
+CONCEPTS:
+    Central (SSOT)    The organizational hub containing all Seats, KBs, Projects
+    Seat              An agent workspace with .openclaw/workspace/ structure
+
+PERMISSIONS:
+    Managed via GitHub:
+    - Central access  → Collaborators on SSOT repo
+    - Seat access     → Collaborators on Seat repo  
+    - KB access       → GitHub Teams permissions
 
 CONFIGURATION:
     Config directory: ~/.workstation/
-    Organizations:    ~/.workstation/centrals/
+    Centrals:         ~/.workstation/centrals/
 
 HELP
 }
@@ -925,14 +956,14 @@ main() {
         onboard)
             cmd_onboard
             ;;
-        org)
+        central|org)
             local subcmd="${2:-list}"
             shift 2 || true
             case "$subcmd" in
                 list) cmd_central_list ;;
                 use) cmd_central_use "$1" ;;
                 info) cmd_central_info "$1" ;;
-                *) log_error "Unknown org command: $subcmd"; show_help; exit 1 ;;
+                *) log_error "Unknown central command: $subcmd"; show_help; exit 1 ;;
             esac
             ;;
         seat)

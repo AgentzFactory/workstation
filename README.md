@@ -6,6 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
 
+> **Cost-Efficient**: Fork-based contributions to optimize org resources. See [Contributing](CONTRIBUTING.md).
+
 Workstation creates modular, secure Single Sources of Truth (SSOT) where humans and AI agents collaborate with clear boundaries and reusable knowledge.
 
 ## 🎯 Concepto Central vs Seat
@@ -135,6 +137,32 @@ Seat-Developer-Acme/
 - [minimal](examples/minimal/) — 1 Central, 2 Seats
 - [multi-team](examples/multi-team/) — Varios equipos, KBs compartidas
 - [enterprise](examples/enterprise/) — Múltiples Centrales, gobernanza
+
+## 🛣️ Roadmap
+
+### Current (v1.0.x)
+- ✅ CLI with `onboard`, `central`, `seat`, `project`, `kb` commands
+- ✅ GitHub-native permissions (no custom auth)
+- ✅ Modular architecture (everything is a submodule)
+- ✅ Trunk-based development CI/CD
+
+### Next (v1.1.x)
+- [ ] `workstation seat sync` - Sync Seat changes to Central
+- [ ] `workstation kb update` - Update KB submodules to latest
+- [ ] Template system for Seats (pre-configured agent types)
+- [ ] Validation commands (`workstation validate`)
+
+### Future (v2.0)
+- [ ] **npm package**: `npm install -g @agentz/workstation`
+  - Makes installation easier for Node.js environments
+  - Enables programmatic API usage
+  - Integration with other Node-based tools
+- [ ] Web UI for visualizing Central structure
+- [ ] GitHub App for automated Seat provisioning
+- [ ] Multi-Central federation (cross-organization collaboration)
+
+### Contributing
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow. We use **fork-based contributions** to optimize costs.
 
 ## 🤝 Contributing
 
