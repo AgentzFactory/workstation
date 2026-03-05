@@ -62,6 +62,12 @@ workstation seat create Developer
 # Crear un proyecto
 workstation project create api-v2
 
+# Sincronizar trabajo (actualiza KBs + push)
+workstation sync
+
+# Ver KBs disponibles
+workstation kb list
+
 # Ver estado
 workstation status
 ```
