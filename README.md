@@ -125,12 +125,41 @@ Seat-Developer-Acme/
 - Colaboradores: `backend-team`, `frontend-team`
 - Ambos equipos contribuyen.
 
+## 🔗 Federated Model
+
+Un usuario puede trabajar para múltiples organizaciones, cada una con su propio Seat:
+
+```
+Usuario
+├── Seat-Developer-Acme     → Trabaja para Acme
+├── Seat-Analyst-Beta       → Trabaja para Beta
+└── Seat-Researcher-Gamma   → Trabaja para Gamma
+```
+
+### Flujo: Seat Independiente → Org
+
+**Desde tu Seat** (tienes `.openclaw/workspace/`):
+```bash
+# Vincular Seat a una Org
+workstation seat join --org Acme --url https://github.com/acme/SSOT-Acme
+
+# La Org incorpora tu Seat a su Central
+# (El admin de Acme ejecuta:)
+workstation seat incorporate --url https://github.com/tu/Seat-Dev-Acme
+```
+
+**Reglas**:
+- Un Seat pertenece a **UNA** Org
+- Un usuario puede tener **múltiples Seats** (uno por Org)
+- El Seat importa KBs de su Org para trabajar con sus estándares
+
 ## 📚 Documentación
 
 - [Architecture](docs/architecture.md) — Diseño y filosofía
 - [Getting Started](docs/getting-started.md) — Guía completa
 - [CLI Reference](docs/cli.md) — Referencia de comandos
 - [Permissions](docs/permissions.md) — Cómo manejar accesos
+- [Federation](docs/federation.md) — Modelo federado
 
 ## 🎓 Examples
 

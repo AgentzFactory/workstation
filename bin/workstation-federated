@@ -1,0 +1,492 @@
+#!/usr/bin/env bash
+#
+# Workstation CLI v2.0 - Federated Model
+# Supports: Independent Seats, Multi-Org membership, KB imports
+#
+
+set -euo pipefail
+
+VERSION="2.0.0"
+WORKSTATION_DIR="${HOME}/.workstation"
+CONFIG_FILE="${WORKSTATION_DIR}/config"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_header() { echo -e "${CYAN}$1${NC}"; }
+
+# ============================================================================
+# SEAT CONTEXT (for commands run FROM a Seat)
+# ============================================================================
+
+# Check if we're inside a Seat (has .openclaw/workspace)
+detect_seat_context() {
+    local dir="${PWD}"
+    while [[ "$dir" != "/" ]]; do
+        if [[ -d "$dir/.openclaw/workspace" ]]; then
+            echo "$dir"
+            return 0
+        fi
+        dir=$(dirname "$dir")
+    done
+    return 1
+}
+
+# Get Seat info from current directory
+get_seat_info() {
+    local seat_path=$(detect_seat_context)
+    if [[ -z "$seat_path" ]]; then
+        return 1
+    fi
+    
+    local seat_name=$(basename "$seat_path")
+    local org_name=$(echo "$seat_name" | sed -E 's/^Seat-[^-]+-//' | sed -E 's/-[0-9]+$//')
+    
+    echo "SEAT_PATH=$seat_path"
+    echo "SEAT_NAME=$seat_name"
+    echo "ORG_NAME=$org_name"
+}
+
+# ============================================================================
+# ORG JOIN (from a Seat perspective)
+# ============================================================================
+
+cmd_org_join() {
+    local ssot_url="${1:-}"
+    
+    if [[ -z "$ssot_url" ]]; then
+        log_error "SSOT URL required"
+        echo "Usage: workstation org join --url <SSOT_URL>"
+        echo ""
+        echo "Example:"
+        echo "  workstation org join --url https://github.com/acme/SSOT-Acme"
+        exit 1
+    fi
+    
+    # Detect if we're in a Seat
+    local seat_path=$(detect_seat_context)
+    if [[ -z "$seat_path" ]]; then
+        log_error "Not in a Seat context"
+        echo "This command must be run from within a Seat directory"
+        echo "(a directory containing .openclaw/workspace/)"
+        exit 1
+    fi
+    
+    local seat_name=$(basename "$seat_path")
+    log_header "Joining Organization from Seat: $seat_name"
+    echo ""
+    
+    # Extract org name from SSOT URL
+    local org_name=$(echo "$ssot_url" | sed -E 's/.*SSOT-([^/]+).*/\1/')
+    if [[ -z "$org_name" ]]; then
+        read -p "Organization name (from SSOT): " org_name
+    fi
+    
+    # Create imports directory in Seat
+    local imports_dir="${seat_path}/.openclaw/workspace/imports"
+    mkdir -p "$imports_dir"
+    
+    # Store org membership in Seat's workstation config
+    local seat_workstation_dir="${seat_path}/.openclaw/.workstation"
+    mkdir -p "$seat_workstation_dir"
+    
+    local orgs_file="${seat_workstation_dir}/orgs"
+    echo "${org_name}=${ssot_url}" >> "$orgs_file"
+    
+    log_success "Joined organization: $org_name"
+    echo "  SSOT: $ssot_url"
+    echo ""
+    
+    # Import KBs from the org
+    log_info "Importing Knowledge Bases from $org_name..."
+    
+    local kb_dir="${imports_dir}/${org_name}"
+    mkdir -p "$kb_dir"
+    
+    # Try to clone KB-Core from the org (public or with access)
+    local kb_core_url=$(echo "$ssot_url" | sed 's/SSOT-[^/]*/kb-core/')
+    
+    if git clone --depth 1 "$kb_core_url" "${kb_dir}/KB-Core" 2>/dev/null; then
+        log_success "Imported KB-Core from $org_name"
+        
+        # Create symlink or reference
+        ln -sf "${kb_dir}/KB-Core" "${seat_path}/.openclaw/workspace/KB-Core-${org_name}" 2>/dev/null || true
+    else
+        log_warn "Could not import KB-Core (may be private or not exist)"
+        log_info "Request access from the organization admin"
+    fi
+    
+    # Add to .gitignore (imports should not be committed)
+    local gitignore="${seat_path}/.gitignore"
+    if ! grep -q "imports/" "$gitignore" 2>/dev/null; then
+        echo "# Workstation imports (KBs from other orgs)" >> "$gitignore"
+        echo ".openclaw/workspace/imports/" >> "$gitignore"
+        echo ".openclaw/.workstation/" >> "$gitignore"
+        echo "KB-Core-*/" >> "$gitignore"
+    fi
+    
+    echo ""
+    log_success "Seat '$seat_name' is now connected to '$org_name'"
+    echo ""
+    echo "You can:"
+    echo "  - Access imported KBs in .openclaw/workspace/KB-Core-${org_name}/"
+    echo "  - Reference the org's standards in your work"
+    echo "  - Push changes to your Seat (the org can see them if they have access)"
+    echo ""
+}
+
+# ============================================================================
+# SEAT INCORPORATE (from a Central perspective)
+# ============================================================================
+
+cmd_seat_incorporate() {
+    local seat_url="${1:-}"
+    local central_name="${2:-${CURRENT_CENTRAL:-}}"
+    
+    if [[ -z "$seat_url" ]]; then
+        log_error "Seat URL required"
+        echo "Usage: workstation seat incorporate --url <SEAT_URL>"
+        echo ""
+        echo "Example:"
+        echo "  workstation seat incorporate --url https://github.com/user/Seat-Developer-Acme"
+        exit 1
+    fi
+    
+    if [[ -z "$central_name" ]]; then
+        log_error "Central not specified"
+        echo "Run: workstation central use <central-name>"
+        exit 1
+    fi
+    
+    # Load central config
+    local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+    source "$central_dir/config"
+    
+    # Extract seat name from URL
+    local seat_name=$(echo "$seat_url" | sed -E 's/.*Seat-([^-]+)-.*/\1/')
+    local seat_repo=$(echo "$seat_url" | sed -E 's|.*/([^/]+)$|\1|')
+    
+    log_header "Incorporating Seat into Central: $central_name"
+    echo ""
+    log_info "Seat: $seat_repo"
+    log_info "URL: $seat_url"
+    echo ""
+    
+    # Add as submodule to SSOT
+    cd "${SSOT_PATH}"
+    
+    if git submodule add "$seat_url" "Seats/${seat_name}" 2>&1; then
+        git commit -m "Incorporate Seat: $seat_name" || log_warn "Nothing to commit"
+        log_success "Seat incorporated"
+        
+        # Update seat's org membership (if we have access)
+        log_info "Attempting to register Central in Seat..."
+        # This would require push access to the seat
+        # For now, just notify
+        echo ""
+        echo "Note: The Seat owner should run:"
+        echo "  workstation org join --url https://github.com/${GITHUB_OWNER}/${SSOT_REPO}"
+    else
+        log_error "Could not incorporate Seat"
+        echo ""
+        echo "Possible reasons:"
+        echo "  - Seat URL is incorrect"
+        echo "  - Seat is private and you don't have access"
+        echo "  - Seat already exists in this Central"
+        exit 1
+    fi
+    
+    echo ""
+    echo "The Seat is now linked to your Central."
+    echo "Collaborators with access to both can see the connection."
+    echo ""
+}
+
+# ============================================================================
+# KB IMPORT (import a KB into current Seat)
+# ============================================================================
+
+cmd_kb_import() {
+    local kb_url="${1:-}"
+    local kb_name="${2:-}"
+    
+    if [[ -z "$kb_url" ]]; then
+        log_error "KB URL required"
+        echo "Usage: workstation kb import --url <KB_URL> [--name <name>]"
+        exit 1
+    fi
+    
+    # Detect if we're in a Seat
+    local seat_path=$(detect_seat_context)
+    if [[ -z "$seat_path" ]]; then
+        log_error "Not in a Seat context"
+        exit 1
+    fi
+    
+    # Extract KB name from URL if not provided
+    if [[ -z "$kb_name" ]]; then
+        kb_name=$(echo "$kb_url" | sed -E 's|.*/KB-([^/]+)$|\1|' | sed -E 's|.*/([^/]+)$|\1|')
+    fi
+    
+    local import_path="${seat_path}/.openclaw/workspace/imports/${kb_name}"
+    
+    log_header "Importing KB: $kb_name"
+    echo ""
+    
+    if [[ -d "$import_path" ]]; then
+        log_warn "KB already imported. Updating..."
+        cd "$import_path" && git pull 2>/dev/null || true
+    else
+        if git clone --depth 1 "$kb_url" "$import_path" 2>/dev/null; then
+            log_success "Imported: $kb_name"
+        else
+            log_error "Could not import KB"
+            echo "Check the URL and your access permissions"
+            exit 1
+        fi
+    fi
+    
+    # Create reference in workspace
+    local ref_path="${seat_path}/.openclaw/workspace/KB-${kb_name}"
+    ln -sf "$import_path" "$ref_path" 2>/dev/null || true
+    
+    echo ""
+    echo "Available at: .openclaw/workspace/KB-${kb_name}/"
+    echo "Or: .openclaw/workspace/imports/${kb_name}/"
+    echo ""
+}
+
+# ============================================================================
+# SYNC (synchronize Seat with connected orgs)
+# ============================================================================
+
+cmd_sync() {
+    local seat_path=$(detect_seat_context)
+    
+    if [[ -z "$seat_path" ]]; then
+        log_error "Not in a Seat context"
+        exit 1
+    fi
+    
+    log_header "Syncing Seat: $(basename "$seat_path")"
+    echo ""
+    
+    # Update all imported KBs
+    local imports_dir="${seat_path}/.openclaw/workspace/imports"
+    
+    if [[ -d "$imports_dir" ]]; then
+        for kb_dir in "$imports_dir"/*; do
+            if [[ -d "$kb_dir/.git" ]]; then
+                local kb_name=$(basename "$kb_dir")
+                log_info "Updating KB: $kb_name..."
+                cd "$kb_dir" && git pull 2>/dev/null && log_success "$kb_name updated" || log_warn "$kb_name update failed"
+            fi
+        done
+    fi
+    
+    # Push seat changes if there are any
+    cd "$seat_path"
+    if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+        log_info "Pushing Seat changes..."
+        git add -A
+        git commit -m "Sync: $(date -u +%Y-%m-%d)" || true
+        git push 2>/dev/null && log_success "Changes pushed" || log_warn "Push failed (may need auth)"
+    fi
+    
+    echo ""
+    log_success "Sync complete"
+    echo ""
+}
+
+# ============================================================================
+# STATUS (enhanced with Seat context)
+# ============================================================================
+
+cmd_status() {
+    log_header "Workstation Status"
+    echo ""
+    
+    echo "Version: $VERSION"
+    echo ""
+    
+    # Check GitHub auth
+    if gh auth status &>/dev/null; then
+        local gh_user=$(gh api user -q .login 2>/dev/null || echo "unknown")
+        log_success "GitHub: $gh_user"
+    else
+        log_warn "GitHub: Not authenticated"
+    fi
+    
+    # Check if in Seat context
+    local seat_path=$(detect_seat_context)
+    if [[ -n "$seat_path" ]]; then
+        echo ""
+        log_info "Seat Context Detected"
+        echo "  Path: $seat_path"
+        echo "  Name: $(basename "$seat_path")"
+        
+        # Show connected orgs
+        local orgs_file="${seat_path}/.openclaw/.workstation/orgs"
+        if [[ -f "$orgs_file" ]]; then
+            echo ""
+            echo "Connected Organizations:"
+            while IFS='=' read -r org url; do
+                echo "  • $org"
+                echo "    $url"
+            done < "$orgs_file"
+        fi
+        
+        # Show imported KBs
+        local imports_dir="${seat_path}/.openclaw/workspace/imports"
+        if [[ -d "$imports_dir" ]]; then
+            echo ""
+            echo "Imported KBs:"
+            for kb in "$imports_dir"/*; do
+                if [[ -d "$kb" ]]; then
+                    echo "  • $(basename "$kb")"
+                fi
+            done
+        fi
+    fi
+    
+    # Show current central (if any)
+    if [[ -f "$CONFIG_FILE" ]]; then
+        source "$CONFIG_FILE"
+        if [[ -n "${CURRENT_CENTRAL:-}" ]]; then
+            echo ""
+            log_info "Active Central: $CURRENT_CENTRAL"
+        fi
+    fi
+    
+    echo ""
+}
+
+# ============================================================================
+# HELP
+# ============================================================================
+
+show_help() {
+    cat <<'HELP'
+Workstation - Agent-Ready Organizational Workspaces (Federated Model)
+
+USAGE FROM A SEAT (with .openclaw/workspace/):
+    workstation org join --url <SSOT_URL>     Join an organization
+    workstation kb import --url <KB_URL>      Import a Knowledge Base
+    workstation sync                           Sync with connected orgs
+    workstation status                         Show context
+
+USAGE FROM A CENTRAL:
+    workstation onboard                        Create new org
+    workstation central use <name>             Switch central
+    workstation seat create <name>             Create new seat
+    workstation seat incorporate --url <URL>   Add existing seat
+    workstation project create <name>          Create project
+    workstation kb add <name>                  Add KB
+
+CONCEPTS:
+    Seat        Agent workspace (independent, can join multiple orgs)
+    Central     Organizational hub (SSOT with Seats, KBs, Projects)
+    Import      KBs brought into a Seat from orgs (not committed)
+    Join        Seat connects to an org (imports org's KBs)
+    Incorporate Central adds existing Seat as submodule
+
+FEDERATION:
+    - A Seat can exist independently
+    - A Seat can join multiple Orgs
+    - An Org can incorporate Seats from anywhere
+    - KBs are imported (cloned) not submoduled in Seats
+
+CONFIGURATION:
+    ~/.workstation/          # Central configs
+    ~/.openclaw/.workstation/ # Seat's org memberships (in Seat)
+
+HELP
+}
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+main() {
+    local command="${1:-help}"
+    
+    case "$command" in
+        org)
+            local subcmd="${2:-}"
+            shift 2 || true
+            case "$subcmd" in
+                join) cmd_org_join "$1" ;;
+                *) show_help; exit 1 ;;
+            esac
+            ;;
+        seat)
+            local subcmd="${2:-list}"
+            shift 2 || true
+            case "$subcmd" in
+                create) 
+                    # Fallback to original implementation if available
+                    if type cmd_seat_create_original >/dev/null 2>&1; then
+                        cmd_seat_create_original "$1"
+                    else
+                        log_error "seat create requires workstation CLI v1"
+                        echo "Install full workstation: curl -fsSL .../install-cli.sh | bash"
+                        exit 1
+                    fi
+                    ;;
+                incorporate) cmd_seat_incorporate "$1" ;;
+                list) 
+                    if type cmd_seat_list_original >/dev/null 2>&1; then
+                        cmd_seat_list_original "$1"
+                    else
+                        echo "No seats found"
+                    fi
+                    ;;
+                *) show_help; exit 1 ;;
+            esac
+            ;;
+        kb)
+            local subcmd="${2:-}"
+            shift 2 || true
+            case "$subcmd" in
+                import) cmd_kb_import "$1" "$3" ;;
+                *) 
+                    if type cmd_kb_add_original >/dev/null 2>&1; then
+                        cmd_kb_add_original "$1"
+                    else
+                        show_help
+                    fi
+                    ;;
+            esac
+            ;;
+        sync)
+            cmd_sync
+            ;;
+        status)
+            cmd_status
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            # Try to delegate to full CLI if available
+            if [[ -f "${WORKSTATION_DIR}/cli-full/bin/workstation" ]]; then
+                exec "${WORKSTATION_DIR}/cli-full/bin/workstation" "$@"
+            else
+                log_error "Unknown command: $command"
+                show_help
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+main "$@"
