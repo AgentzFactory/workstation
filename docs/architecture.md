@@ -1,210 +1,167 @@
-# Architecture Overview
+# Architecture
 
-Workstation implements a **modular, agent-ready organizational architecture** based on the principle of Single Source of Truth (SSOT).
+Diseño de Workstation: todo es modular.
 
-## Design Principles
+## Principios
 
-### 1. Separation of Concerns
-Each component has a single, well-defined responsibility:
-- **KBs** define *what things mean*
-- **Seats** provide *who acts*
-- **Projects** define *what to achieve*
-- **Sprints** bound *when to deliver*
+1. **Todo es Submódulo**: KBs, Seats, Projects son repos independientes
+2. **Naming por Organización**: Cada recurso incluye `$ORG` en su nombre
+3. **SSOT como Hub**: El SSOT solo contiene referencias (submódulos)
+4. **Persistencia en Seats**: `.openclaw/workspace/` para contexto del agente
 
-### 2. Composability
-Components are designed to work together:
-- A Project references multiple Seats
-- A Sprint includes multiple Projects
-- KBs provide shared semantics across all components
-
-### 3. Version Control Everything
-All state is stored in git:
-- Reversible changes
-- Audit trail
-- Collaborative editing
-- Branching for experiments
-
-### 4. Agent-First Design
-Structure optimizes for AI consumption:
-- Clear file naming
-- Consistent schemas
-- Explicit relationships
-- Machine-readable formats
-
-## Component Deep Dive
-
-### KBs (Knowledge Bases)
+## Estructura
 
 ```
-KBs/
-├── KB-Core/           # Canonical semantics (submodule)
-├── KB-Domain/         # Domain knowledge (submodule)
-└── KB-Internal/       # Organization-specific (local)
+┌─────────────────────────────────────────────────────────────────┐
+│                      workstation/                               │
+│                        (Herramienta)                            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ bash install.sh
+                              
+┌─────────────────────────────────────────────────────────────────┐
+│                    SSOT-$ORG_NAME/                              │
+│                     (Hub Central)                               │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │     KBs/     │  │    Seats/    │  │  Projects/   │          │
+│  │  (submods)   │  │  (submods)   │  │  (submods)   │          │
+│  │              │  │              │  │              │          │
+│  │  KB-Core/    │  │ Seat-Dev/    │  │ Proj-Api/    │          │
+│  │  KB-Eng/     │  │ Seat-Res/    │  │ Proj-Web/    │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+        │                   │                   │
+        ▼                   ▼                   ▼
+   ┌─────────┐        ┌──────────┐        ┌──────────┐
+   │kb-core/ │        │Seat-Dev  │        │Proj-Api  │
+   │kb-eng/  │        │$ORG/     │        │$ORG/     │
+   └─────────┘        │          │        │          │
+                      │.openclaw/│        │          │
+                      │  workspace/       │          │
+                      │   - AGENT.md      │          │
+                      │   - MEMORY.md     │          │
+                      │   - TOOLS.md     │          │
+                      └──────────┘        └──────────┘
 ```
 
-**KB-Core** is special:
-- Defines base entities (Organization, Seat, Project, Sprint)
-- Establishes naming conventions
-- Immutable semantics (extend, don't modify)
-- Shared across all Workstation instances
+## Naming Convention
 
-**KB-Domain** examples:
-- `KB-Engineering`: Code standards, tech stack
-- `KB-Legal`: Contracts, compliance requirements
-- `KB-Marketing`: Brand guidelines, voice/tone
+| Tipo | Patrón | Ejemplo |
+|------|--------|---------|
+| SSOT | `SSOT-$ORG` | `SSOT-Acme` |
+| Seat | `Seat-$Name-$ORG` | `Seat-Developer-Acme` |
+| Project | `Project-$Name-$ORG` | `Project-ApiV2-Acme` |
+| KB | `KB-$Name` | `KB-Core`, `KB-Engineering` |
 
-### Seats
+## Componentes
 
-```
-Seats/
-├── Developer/
-│   ├── AGENT.md       # Identity and purpose
-│   ├── MEMORY.md      # Long-term context
-│   └── TOOLS.md       # Capabilities
-├── Researcher/
-└── Writer/
-```
+### KB (Knowledge Base)
 
-A Seat is an **agent context container**:
-- Can be a dedicated AI agent
-- Can be a human role
-- Can be a hybrid team
-
-**AGENT.md** fields:
-```markdown
-# SeatName
-**Role**: Primary function
-**Owner**: Who manages this seat
-**Permissions**: What it can do
-**Boundaries**: What it cannot do
-```
-
-### Projects
+Repo independiente con conocimiento compartido.
 
 ```
-Projects/
-├── api-redesign/
-│   ├── README.md      # Project definition
-│   ├── DECISIONS.md   # Architecture decisions
-│   └── docs/          # Project documentation
-└── migration-v2/
+kb-engineering/
+├── README.md
+├── standards/
+├── templates/
+└── .gitignore
 ```
 
-Projects are **scoped work streams**:
-- Clear objectives
-- Defined scope (inclusions/exclusions)
-- Associated Seats
-- Linked KBs
+### Seat
 
-### Sprints
+Repo independiente con entorno del agente.
 
 ```
-Sprints/
-├── 2026-03-foundation/
-│   ├── README.md      # Sprint goals
-│   ├── DELIVERABLES.md
-│   └── RETROSPECTIVE.md
-└── 2026-04-scale/
+Seat-Developer-Acme/
+├── .openclaw/workspace/
+│   ├── AGENT.md      # Identidad
+│   ├── MEMORY.md     # Memoria
+│   └── TOOLS.md      # Herramientas
+├── .gitignore
+└── README.md
 ```
 
-Sprints provide **time boundaries**:
-- Start/end dates
-- Sprint goals
-- Deliverable checklist
-- Retrospective for learning
+### Project
 
-## Data Flow
+Repo independiente con objetivos y scope.
 
 ```
-┌─────────┐     references      ┌─────────┐
-│  KBs    │◄────────────────────│  Seats  │
-└────┬────┘                     └────┬────┘
-     │                               │
-     │         defines semantics     │
-     └──────────────►┌─────────┐◄────┘
-                     │ Projects│
-                     └────┬────┘
-                          │
-                          │ bounds time
-                          ▼
-                     ┌─────────┐
-                     │ Sprints │
-                     └─────────┘
+Project-ApiV2-Acme/
+├── docs/
+├── .gitignore
+└── README.md         # Objetivos, deliverables
 ```
 
-1. **KBs** provide shared language
-2. **Seats** use KBs to understand context
-3. **Projects** assign work to Seats
-4. **Sprints** time-box Project execution
+## Flujo de Datos
 
-## Git Submodules Strategy
+```
+┌─────────┐
+│  KBs    │─────► Definen semántica
+└────┬────┘
+     │
+     ▼
+┌─────────┐     ┌─────────┐
+│  Seats  │◄────│Projects │
+└────┬────┘     └─────────┘
+     │
+     ▼
+┌─────────┐
+│  Agent  │
+│  Work   │
+└─────────┘
+```
 
-Workstation uses git submodules for:
-- **KBs**: Share knowledge across organizations
-- **Seats**: Isolate agent contexts (optional)
+## Git Workflow
 
-### Why Submodules?
-
-✅ **Benefits**:
-- Independent versioning
-- Reusable components
-- Clear boundaries
-- Selective updates
-
-⚠️ **Tradeoffs**:
-- Learning curve
-- Extra commands (`git submodule update`)
-- Potential for stale references
-
-### Best Practices
+### Clonar SSOT
 
 ```bash
-# Clone with all submodules
-git clone --recurse-submodules <url>
-
-# Update submodules
-git submodule update --remote
-
-# Add a new KB
-git submodule add <url> SSOT/KBs/my-kb
+git clone --recurse-submodules https://github.com/org/SSOT-Org.git
 ```
 
-## Security Model
+### Actualizar Componentes
 
-### Seat Boundaries
-- Each Seat has explicit permissions
-- Sensitive tools in dedicated Seats
-- TOOLS.md can reference external secrets (not commit them)
+```bash
+cd SSOT-Org
 
-### Knowledge Access
-- KB-Core: Universal read access
-- KB-Domain: Role-based access
-- KB-Internal: Organization-only
+# Actualiza todos los submódulos
+git submodule update --remote
 
-### Audit Trail
-- Git history shows all changes
-- Who changed what, when
-- Rollback capability
+# Commit referencias actualizadas
+git add -A
+git commit -m "Update components"
+```
 
-## Scaling Considerations
+### Trabajar en un Seat
 
-### Small Team (2-5 people)
-- Single SSOT
-- Few Seats (3-5)
-- KB-Core + 1-2 domain KBs
+```bash
+cd Seats/Developer/.openclaw/workspace/
+nano MEMORY.md
 
-### Medium Organization (10-50 people)
-- Multiple SSOTs per department
-- Many Seats (10-20)
-- Shared KBs via submodules
+cd ../..
+git add -A
+git commit -m "Update memory"
 
-### Large Enterprise (100+ people)
-- SSOT per team
-- Central KB registry
-- Automated Seat provisioning
+cd ../..
+git add Seats/Developer
+git commit -m "Update Developer ref"
+```
 
-## Next Steps
+## Ventajas
 
-- [Getting Started](getting-started.md): Set up your first Workstation
-- [Managing Seats](seats.md): Create agent workspaces
-- [Best Practices](best-practices.md): Tips for effective use
+- **Modularidad**: Cada componente versionado independientemente
+- **Reutilización**: Un Seat puede usarse en múltiples SSOTs
+- **Aislamiento**: Cambios en un Seat no afectan otros
+- **Escalabilidad**: Agregar componentes no complica el SSOT
+- **Seguridad**: Seats sensibles pueden tener acceso restringido
+
+## Comparación: Con vs Sin Workstation
+
+| Aspecto | Sin Workstation | Con Workstation |
+|---------|----------------|-----------------|
+| Estructura | Ad-hoc, cada uno diferente | Estandarizada |
+| Agent context | Disperso, difícil de encontrar | Centralizado en `.openclaw/workspace/` |
+| Compartir conocimiento | Copy-paste | Submódulos git |
+| Onboarding | Manual, explicar estructura | `bash install.sh` |
+| Historia | Perdida o dispersa | Completa en git |

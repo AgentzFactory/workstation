@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Create a new Seat (agent workspace)
-# Creates a standalone repository with .openclaw/workspace structure
+# Creates: Seat-$SeatName-$ORG_NAME as standalone repository
 #
 
 set -euo pipefail
@@ -13,87 +13,104 @@ if [[ -z "$SEAT_NAME" ]]; then
     exit 1
 fi
 
-# Convert to PascalCase for directory name
-SEAT_DIR="seat-$(echo "$SEAT_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/.*/\u&/')"
+# Get ORG_NAME from environment or error
+if [[ -z "${ORG_NAME:-}" ]]; then
+    if [[ -f ".env" ]]; then
+        source .env
+    fi
+fi
 
-if [[ -d "../$SEAT_DIR" ]]; then
-    echo "Error: Seat '../$SEAT_DIR' already exists"
+if [[ -z "${ORG_NAME:-}" ]]; then
+    echo "Error: ORG_NAME not set"
+    echo "Set it in .env or environment variable"
     exit 1
 fi
 
-echo "Creating Seat repository: $SEAT_DIR"
+# Convert SeatName to PascalCase
+SEAT_PASCAL=$(echo "$SEAT_NAME" | sed 's/.*/\u&/')
+REPO_NAME="Seat-${SEAT_PASCAL}-${ORG_NAME}"
+REPO_DIR="../${REPO_NAME}"
+
+if [[ -d "$REPO_DIR" ]]; then
+    echo "Error: Seat '$REPO_DIR' already exists"
+    exit 1
+fi
+
+echo "Creating Seat repository: $REPO_NAME"
 
 # Create standalone repository
-mkdir -p "../$SEAT_DIR"
-cd "../$SEAT_DIR"
+mkdir -p "$REPO_DIR"
+cd "$REPO_DIR"
 git init 2>/dev/null || true
 
 # Create .openclaw/workspace structure
 mkdir -p .openclaw/workspace
 
 # Create AGENT.md
-cat > .openclaw/workspace/AGENT.md <>EOF
-# $SEAT_NAME
+AGENT_MD="# $SEAT_NAME
 
-**Role**: <!-- Define agent role -->  
+**Organization**: $ORG_NAME  
+**Role**: DEFINE_AGENT_ROLE  
 **Created**: $(date -u +"%Y-%m-%d")
 
 ## Purpose
 
-<!-- What this agent does -->
+What this agent does.
 
 ## Boundaries
 
-- ✅ **Can**: <!-- List allowed actions -->
-- ❌ **Cannot**: <!-- List prohibited actions -->
-- ⚠️ **Needs Approval**: <!-- List actions needing approval -->
+- **Can**: List allowed actions
+- **Cannot**: List prohibited actions
+- **Needs Approval**: List actions needing approval
 
 ## Tools
 
-<!-- Available tools and capabilities -->
+Available tools and capabilities.
 
 ## Communication Style
 
-<!-- How this agent communicates -->
-EOF
+How this agent communicates.
+"
+echo "$AGENT_MD" > .openclaw/workspace/AGENT.md
 
 # Create MEMORY.md
-cat > .openclaw/workspace/MEMORY.md <>EOF
-# Memory: $SEAT_NAME
+MEMORY_MD="# Memory: $SEAT_NAME ($ORG_NAME)
 
-<!-- Persistent context and learnings -->
+Persistent context and learnings.
 
 ## Preferences
 
-<!-- Work preferences, style, etc -->
+Work preferences, style, etc.
 
 ## Active Context
 
-<!-- Current focus, blockers, etc -->
+Current focus, blockers, etc.
 
 ## Learned
 
-<!-- Key insights and lessons -->
-EOF
+Key insights and lessons.
+"
+echo "$MEMORY_MD" > .openclaw/workspace/MEMORY.md
 
 # Create TOOLS.md
-cat > .openclaw/workspace/TOOLS.md <>EOF
-# Tools: $SEAT_NAME
+TOOLS_MD="# Tools: $SEAT_NAME ($ORG_NAME)
 
-<!-- Tool configurations and credentials -->
+Tool configurations and credentials.
 
 ## Available Tools
 
-<!-- List configured tools -->
+List configured tools.
 
 ## Credentials
 
-<!-- Reference to credentials (never commit actual secrets) -->
-EOF
+Reference to credentials (never commit actual secrets).
+"
+echo "$TOOLS_MD" > .openclaw/workspace/TOOLS.md
 
 # Create main README
-cat > README.md <>EOF
-# Seat: $SEAT_NAME
+README="# Seat: $SEAT_NAME
+
+Organization: **$ORG_NAME**
 
 Agent workspace for $SEAT_NAME.
 
@@ -112,58 +129,49 @@ This Seat is designed to be used as a git submodule in an SSOT repository.
 
 \`\`\`bash
 # In your SSOT
-git submodule add https://github.com/<owner>/$SEAT_DIR.git Seats/
+git submodule add https://github.com/OWNER/$REPO_NAME.git Seats/
 \`\`\`
-EOF
+
+## Repository
+
+- **Name**: $REPO_NAME
+- **Organization**: $ORG_NAME
+- **Created**: $(date -u +"%Y-%m-%d")
+"
+echo "$README" > README.md
 
 # Create .gitignore
 cat > .gitignore <>'GITIGNORE'
-# =========================================
 # Environment - NEVER COMMIT SECRETS
-# =========================================
 .env
 .env.*
 !.env.example
 
-# =========================================
-# OS Generated
-# =========================================
+# OS
 .DS_Store
 Thumbs.db
 
-# =========================================
 # Editors
-# =========================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# =========================================
 # Logs
-# =========================================
 *.log
 logs/
 
-# =========================================
-# Temporary Files
-# =========================================
+# Temp
 .tmp/
 temp/
 .cache/
 *.tmp
-
-# =========================================
-# OpenClaw Runtime (optional)
-# Uncomment if you don't want to persist runtime files
-# .openclaw/workspace/.tmp/
-# .openclaw/workspace/*.pid
 GITIGNORE
 
 # Initial commit
 git add -A
-git commit -m "Initial Seat: $SEAT_NAME
+git commit -m "Initial Seat: $SEAT_NAME for $ORG_NAME
 
 - Agent workspace structure
 - .openclaw/workspace/ for persistence
@@ -172,10 +180,10 @@ git commit -m "Initial Seat: $SEAT_NAME
 Generated by Workstation"
 
 echo ""
-echo "✅ Seat created: ../$SEAT_DIR"
+echo "✅ Seat created: $REPO_DIR"
 echo ""
 echo "Structure:"
-echo "  ../$SEAT_DIR/"
+echo "  $REPO_DIR/"
 echo "  ├── .openclaw/workspace/"
 echo "  │   ├── AGENT.md"
 echo "  │   ├── MEMORY.md"
@@ -184,11 +192,11 @@ echo "  ├── .gitignore"
 echo "  └── README.md"
 echo ""
 echo "Next steps:"
-echo "  1. Edit ../$SEAT_DIR/.openclaw/workspace/AGENT.md"
+echo "  1. Edit $REPO_DIR/.openclaw/workspace/AGENT.md"
 echo "  2. Add to SSOT as submodule:"
-echo "     cd ../SSOT-<ORG_NAME>"
-echo "     git submodule add ../$SEAT_DIR Seats/$SEAT_NAME"
-echo "  3. Push Seat to GitHub:"
-echo "     cd ../$SEAT_DIR"
-echo "     git remote add origin https://github.com/<owner>/$SEAT_DIR.git"
+echo "     cd ../SSOT-${ORG_NAME}"
+echo "     git submodule add ../$REPO_NAME Seats/$SEAT_PASCAL"
+echo "  3. Push to GitHub:"
+echo "     cd ../$REPO_DIR"
+echo "     git remote add origin https://github.com/OWNER/$REPO_NAME.git"
 echo "     git push -u origin main"
