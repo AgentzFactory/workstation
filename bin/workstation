@@ -909,14 +909,17 @@ COMMANDS:
     
     kb                          Knowledge base management
         kb add [name]           Add a knowledge base
+        kb list                 List available KBs
     
-    status                      Show workstation status
-    
-    help                        Show this help message
+    sync                        Sync imported KBs and push changes
 
 EXAMPLES:
     # Initial setup
     workstation onboard
+    
+    # Daily workflow
+    workstation sync             # Update KBs + push work
+    workstation kb list          # See available KBs
     
     # From a Seat: Link to Organization
     workstation seat join --org Acme --url https://github.com/acme/SSOT-Acme
@@ -1081,8 +1084,12 @@ main() {
             shift 2 || true
             case "$subcmd" in
                 add) cmd_kb_add "$1" ;;
+                list) cmd_kb_list ;;
                 *) log_error "Unknown kb command: $subcmd"; show_help; exit 1 ;;
             esac
+            ;;
+        sync)
+            cmd_sync
             ;;
         status)
             cmd_status
@@ -1104,3 +1111,113 @@ main "$@"
 # FEDERATED FUNCTIONS (Seat joins Org)
 # ============================================================================
 
+
+# ============================================================================
+# MVP COMMANDS (Quick wins)
+# ============================================================================
+
+cmd_kb_list() {
+    local seat_path=$(detect_seat_context)
+    
+    if [[ -n "$seat_path" ]]; then
+        # In seat context - show imported KBs
+        local imports_dir="${seat_path}/.openclaw/workspace/imports"
+        if [[ -d "$imports_dir" ]]; then
+            log_header "Imported Knowledge Bases"
+            echo ""
+            for org_dir in "$imports_dir"/*; do
+                if [[ -d "$org_dir" ]]; then
+                    local org=$(basename "$org_dir")
+                    echo "  📁 $org/"
+                    for kb in "$org_dir"/*; do
+                        if [[ -d "$kb" ]]; then
+                            echo "    📄 $(basename "$kb")"
+                        fi
+                    done
+                fi
+            done
+        else
+            echo "  No KBs imported yet"
+            echo "  Run: workstation seat join --org <name> --url <url>"
+        fi
+    else
+        # In central context - show available KBs
+        local central_name="${CURRENT_CENTRAL:-}"
+        if [[ -z "$central_name" ]]; then
+            log_error "Not in a Seat or Central context"
+            exit 1
+        fi
+        
+        local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+        source "$central_dir/config"
+        
+        log_header "Knowledge Bases in $central_name"
+        echo ""
+        if [[ -d "${SSOT_PATH}/KBs" ]]; then
+            for kb in "${SSOT_PATH}/KBs"/*; do
+                if [[ -d "$kb" ]]; then
+                    echo "  📚 $(basename "$kb")"
+                fi
+            done
+        fi
+    fi
+    echo ""
+}
+
+cmd_sync() {
+    local seat_path=$(detect_seat_context)
+    
+    log_header "Syncing..."
+    echo ""
+    
+    if [[ -n "$seat_path" ]]; then
+        # In seat - update imported KBs
+        local imports_dir="${seat_path}/.openclaw/workspace/imports"
+        if [[ -d "$imports_dir" ]]; then
+            log_info "Updating imported KBs..."
+            for kb_dir in "$imports_dir"/*/*/; do
+                if [[ -d "$kb_dir/.git" ]]; then
+                    local kb_name=$(basename "$kb_dir")
+                    log_info "  Pulling $kb_name..."
+                    (cd "$kb_dir" && git pull --ff-only 2>/dev/null) && log_success "  $kb_name updated" || log_warn "  $kb_name update failed"
+                fi
+            done
+        fi
+        
+        # Push seat changes
+        log_info "Pushing Seat changes..."
+        cd "$seat_path"
+        if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+            git add -A
+            git commit -m "Sync: $(date -Iseconds)" || true
+            if git push 2>/dev/null; then
+                log_success "Changes pushed"
+            else
+                log_warn "Push failed - may need to pull first"
+            fi
+        else
+            log_info "No changes to push"
+        fi
+    else
+        # Try central context
+        local central_name="${CURRENT_CENTRAL:-}"
+        if [[ -n "$central_name" ]]; then
+            local central_dir="${WORKSTATION_DIR}/centrals/${central_name}"
+            source "$central_dir/config"
+            
+            log_info "Updating Central submodules..."
+            cd "${SSOT_PATH}"
+            git submodule update --remote
+            git add -A
+            git commit -m "Sync submodules" || true
+            git push && log_success "Central synced"
+        else
+            log_error "Not in a Seat or Central context"
+            exit 1
+        fi
+    fi
+    
+    echo ""
+    log_success "Sync complete"
+    echo ""
+}
